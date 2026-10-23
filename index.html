@@ -1,0 +1,1447 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>call me maybe — Savunma Çalışma Notları</title>
+<meta name="description" content="call me maybe projesinin savunma rehberi: Qwen3-0.6B ve constrained decoding ile doğal dildeki isteği fonksiyon çağrısına çeviren kodun tamamı, etkileşimli örneklerle.">
+<meta name="theme-color" content="#ffffff">
+<meta property="og:title" content="call me maybe — Savunma Çalışma Notları">
+<meta property="og:description" content="Constrained decoding, logit maskeleme ve kodun her fonksiyonu; savunma soruları ve hazır tariflerle.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23fff'/%3E%3Crect x='4' y='26' width='5' height='2' fill='%23ccc'/%3E%3Crect x='13.5' y='6' width='5' height='22' fill='%231a4be0'/%3E%3Crect x='23' y='26' width='5' height='2' fill='%23ccc'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script>document.documentElement.classList.add('js');</script>
+</head>
+<body id="top">
+<a class="skip" href="#main">İçeriğe geç</a>
+<div class="progress" aria-hidden="true"><i></i></div>
+
+<header class="hero">
+  <div class="topbar">
+    <a class="wordmark" href="#top">call me maybe</a>
+    <nav class="toplinks" aria-label="Kısayollar">
+      <a href="#icindekiler">İçindekiler</a>
+      <a href="#2-bilmen-gereken-temel-kavramlar">Kavramlar</a>
+      <a href="#6-uçtan-uca-örnek-what-is-the-sum-of-2-and-3" class="only-wide">Uçtan uca örnek</a>
+    </nav>
+  </div>
+  <div class="hero-body">
+    <h1><span>call me maybe —</span> <span>Savunma Çalışma Notları</span></h1>
+    <p class="lead">Qwen3-0.6B ile doğal dildeki bir isteği tipli bir fonksiyon çağrısına çeviren projenin savunma rehberi. Notların tamamı, etkileşimli örneklerle.</p>
+    <div class="hero-act">
+      <a class="btn" href="#0-bu-dosyayı-nasıl-çalışmalısın">Çalışmaya başla</a>
+      <a class="btn btn-quiet resume" href="#" hidden>Kaldığın yerden devam et</a>
+    </div>
+    <p class="hero-cap">Sağdaki çubuklar tek bir adımın logitleri: geçersiz tokenler <code>-inf</code>'e iner, kalan en yüksek geçerli token (mavi) seçilir.</p>
+  </div>
+  <div class="hero-bars masked" aria-hidden="true"><span class="hb x" style="--h:0.42;--i:0"><i></i></span><span class="hb x" style="--h:0.66;--i:1"><i></i></span><span class="hb v" style="--h:0.3;--i:2"><i></i></span><span class="hb x" style="--h:0.81;--i:3"><i></i></span><span class="hb x" style="--h:0.52;--i:4"><i></i></span><span class="hb v" style="--h:0.58;--i:5"><i></i></span><span class="hb x" style="--h:0.37;--i:6"><i></i></span><span class="hb x" style="--h:0.74;--i:7"><i></i></span><span class="hb x" style="--h:0.28;--i:8"><i></i></span><span class="hb c" style="--h:0.69;--i:9"><i></i></span><span class="hb x" style="--h:0.47;--i:10"><i></i></span><span class="hb x" style="--h:0.95;--i:11"><i></i></span><span class="hb x" style="--h:0.62;--i:12"><i></i></span><span class="hb v" style="--h:0.33;--i:13"><i></i></span><span class="hb x" style="--h:0.55;--i:14"><i></i></span><span class="hb x" style="--h:0.88;--i:15"><i></i></span><span class="hb x" style="--h:0.41;--i:16"><i></i></span><span class="hb v" style="--h:0.6;--i:17"><i></i></span><span class="hb x" style="--h:0.35;--i:18"><i></i></span><span class="hb x" style="--h:0.77;--i:19"><i></i></span><span class="hb x" style="--h:0.5;--i:20"><i></i></span><span class="hb x" style="--h:0.3;--i:21"><i></i></span></div>
+</header>
+
+<div class="hero-note-w">
+  <div class="hero-note"><blockquote>
+<p>Bu dosya repoda <strong>değil</strong>, bilerek dışarıda duruyor. Commit etme.
+Kodun 23 Ekim 2026 tarihli haline (son commit <code>dfa70e3</code>) göre yazıldı.
+Kodda bir şey değiştirirsen ilgili bölümü de güncelle.</p>
+</blockquote>
+</div>
+</div>
+
+<div class="mbar">
+  <button type="button" class="mbar-btn" aria-controls="side" aria-expanded="false">İçindekiler</button>
+  <span class="mbar-t" aria-live="polite"></span>
+</div>
+
+<div class="doc" id="main">
+  <aside class="side" id="side">
+    <nav aria-label="Bölümler">
+      <p class="side-h">Bölümler <span class="side-read"></span></p>
+      <ol class="toc">
+<li data-ch="icindekiler"><a href="#icindekiler" class="toc-ch"><span class="bar" aria-hidden="true"><i></i></span><span class="toc-t">İçindekiler</span></a></li>
+<li data-ch="0-bu-dosyayı-nasıl-çalışmalısın"><a href="#0-bu-dosyayı-nasıl-çalışmalısın" class="toc-ch"><span class="bar" aria-hidden="true"><i></i></span><span class="toc-t">0. Bu dosyayı nasıl çalışmalısın</span></a></li>
+<li data-ch="1-proje-ne-yapıyor--büyük-resim"><a href="#1-proje-ne-yapıyor--büyük-resim" class="toc-ch"><span class="bar" aria-hidden="true"><i></i></span><span class="toc-t">1. Proje ne yapıyor — büyük resim</span></a><ol class="toc-subs"><li><a href="#11-tek-cümlede">1.1 Tek cümlede</a></li><li><a href="#12-buna-neden-function-calling-deniyor-neden-önemli">1.2 Buna neden &quot;function calling&quot; deniyor, neden önemli</a></li><li><a href="#13-asıl-problem-küçük-model-güvenilmez">1.3 Asıl problem: küçük model güvenilmez</a></li><li><a href="#14-çözüm-constrained-decoding-kısıtlı-çözümleme">1.4 Çözüm: constrained decoding (kısıtlı çözümleme)</a></li><li><a href="#15-subjectin-hedefleri">1.5 Subject&#39;in hedefleri</a></li><li><a href="#16-yasaklar-mutlaka-bil">1.6 Yasaklar (mutlaka bil)</a></li></ol></li>
+<li data-ch="2-bilmen-gereken-temel-kavramlar"><a href="#2-bilmen-gereken-temel-kavramlar" class="toc-ch"><span class="bar" aria-hidden="true"><i></i></span><span class="toc-t">2. Bilmen gereken temel kavramlar</span></a><ol class="toc-subs"><li><a href="#21-token-ve-tokenizer">2.1 Token ve tokenizer</a></li><li><a href="#22-vocab-kelime-dağarcığı-ve-vocabjson">2.2 Vocab (kelime dağarcığı) ve <code>vocab.json</code></a></li><li><a href="#23-ġ-ve-ċ-nedir-byte-level-bpe">2.3 <code>Ġ</code> ve <code>Ċ</code> nedir? (Byte-level BPE)</a></li><li><a href="#24-token-id-ve-input_ids">2.4 Token id ve <code>input_ids</code></a></li><li><a href="#25-logit">2.5 Logit</a></li><li><a href="#26-otoregresif-üretim-token-token">2.6 Otoregresif üretim (token token)</a></li><li><a href="#27-greedy-seçim">2.7 Greedy seçim</a></li><li><a href="#28-maskeleme-ve--inf">2.8 Maskeleme ve <code>-inf</code></a></li><li><a href="#29-gramer-fragment-ve-prefix-düşüncesi">2.9 Gramer, &quot;fragment&quot; ve &quot;prefix&quot; düşüncesi</a></li></ol></li>
+<li data-ch="3-proje-yapısı-ve-dosyaların-görevleri"><a href="#3-proje-yapısı-ve-dosyaların-görevleri" class="toc-ch"><span class="bar" aria-hidden="true"><i></i></span><span class="toc-t">3. Proje yapısı ve dosyaların görevleri</span></a><ol class="toc-subs"><li><a href="#31-katmanlar--neden-böyle-bölündü">3.1 Katmanlar</a></li><li><a href="#32-yapılandırma-dosyaları">3.2 Yapılandırma dosyaları</a></li><li><a href="#33-llm_sdk--ne-kullanıyoruz-ne-kullanmıyoruz">3.3 <code>llm_sdk</code></a></li></ol></li>
+<li data-ch="4-programın-baştan-sona-akışı"><a href="#4-programın-baştan-sona-akışı" class="toc-ch"><span class="bar" aria-hidden="true"><i></i></span><span class="toc-t">4. Programın baştan sona akışı</span></a></li>
+<li data-ch="5-fonksiyonlar--çalışma-sırasıyla-tek-tek"><a href="#5-fonksiyonlar--çalışma-sırasıyla-tek-tek" class="toc-ch"><span class="bar" aria-hidden="true"><i></i></span><span class="toc-t">5. Fonksiyonlar — çalışma sırasıyla, tek tek</span></a><ol class="toc-subs"><li><a href="#50-pydantic-modelleri--srcmodelspy">5.0 Pydantic modelleri</a></li><li><a href="#51-sabitler--src__main__py-başı">5.1 Sabitler</a></li><li><a href="#52-main--src__main__py">5.2 <code>main()</code></a></li><li><a href="#53-parse_args--src__main__py">5.3 <code>parse_args()</code></a></li><li><a href="#54-load_json_filepath--src__main__py">5.4 <code>load_json_file()</code></a></li><li><a href="#55-load_functionspath--src__main__py">5.5 <code>load_functions()</code></a></li><li><a href="#56-load_promptspath--src__main__py">5.6 <code>load_prompts()</code></a></li><li><a href="#57-small_llm_model--llm_sdk-hazır">5.7 <code>Small_LLM_Model()</code></a></li><li><a href="#58-load_vocabmodel--srcvocabpy">5.8 <code>load_vocab()</code></a></li><li><a href="#59-build_id_to_tokentoken_to_id--srcvocabpy">5.9 <code>build_id_to_token()</code></a></li><li><a href="#510-process_promptsmodel-prompts-functions-vocab-id_to_token--src__main__py">5.10 <code>process_prompts()</code></a></li><li><a href="#511-generate_function_callmodel-prompt-functions-vocab-id_to_token--srcdecodingpy">5.11 <code>generate_function_call()</code></a></li><li><a href="#512-generate_constrained_stringmodel-input_ids-candidates-vocab-id_to_token--srcdecodingpy">5.12 <code>generate_constrained_string()</code></a></li><li><a href="#513-get_valid_tokens_for_candidatescandidates-generated_so_far-vocab--srcgrammarpy">5.13 <code>get_valid_tokens_for_candidates()</code></a></li><li><a href="#514-get_valid_tokens_for_targettarget-generated_so_far-vocab--srcgrammarpy">5.14 <code>get_valid_tokens_for_target()</code></a></li><li><a href="#515-_select_next_tokenmodel-input_ids-valid_token_ids-id_to_token--srcdecodingpy">5.15 <code>_select_next_token()</code></a></li><li><a href="#516-filter_candidatescandidates-generated_so_far--srcgrammarpy">5.16 <code>filter_candidates()</code></a></li><li><a href="#517-generate_numbermodel-input_ids-vocab-id_to_token-allow_decimaltrue--srcdecodingpy">5.17 <code>generate_number()</code></a></li><li><a href="#518-get_valid_tokens_for_numbergenerated_so_far-vocab-allow_decimaltrue--srcgrammarpy">5.18 <code>get_valid_tokens_for_number()</code></a></li><li><a href="#519-is_valid_number_fragmentfragment-allow_decimaltrue--srcgrammarpy">5.19 <code>is_valid_number_fragment()</code></a></li><li><a href="#520-is_complete_numberfragment--srcgrammarpy">5.20 <code>is_complete_number()</code></a></li><li><a href="#521-generate_stringmodel-input_ids-vocab-id_to_token--srcdecodingpy">5.21 <code>generate_string()</code></a></li><li><a href="#522-get_valid_tokens_for_stringgenerated_so_far-vocab--srcgrammarpy">5.22 <code>get_valid_tokens_for_string()</code></a></li><li><a href="#523-is_valid_string_fragmentfragment--srcgrammarpy">5.23 <code>is_valid_string_fragment()</code></a></li><li><a href="#524-is_complete_stringfragment--srcgrammarpy">5.24 <code>is_complete_string()</code></a></li><li><a href="#525-build_byte_decoder-ve-byte_decoder--srcgrammarpy">5.25 <code>build_byte_decoder()</code> ve <code>BYTE_DECODER</code></a></li><li><a href="#526-decode_bpe_stringraw-byte_decoder--srcgrammarpy">5.26 <code>decode_bpe_string()</code></a></li><li><a href="#527-write_resultspath-results--src__main__py">5.27 <code>write_results()</code></a></li></ol></li>
+<li data-ch="6-uçtan-uca-örnek-what-is-the-sum-of-2-and-3"><a href="#6-uçtan-uca-örnek-what-is-the-sum-of-2-and-3" class="toc-ch"><span class="bar" aria-hidden="true"><i></i></span><span class="toc-t">6. Uçtan uca örnek: &quot;What is the sum of 2 and 3?&quot;</span></a><ol class="toc-subs"><li><a href="#bir-string-örneği-greet-shrek">Bir string örneği: &quot;Greet shrek&quot;</a></li></ol></li>
+      </ol>
+    </nav>
+  </aside>
+  <div class="scrim" hidden></div>
+  <main class="content">
+<section class="chapter chapter-index" data-chapter="icindekiler" aria-labelledby="icindekiler">
+<h2 id="icindekiler" class="mdh rv">İçindekiler</h2>
+<ol start="0">
+<li><a href="#0-bu-dosyayı-nasıl-çalışmalısın">Bu dosyayı nasıl çalışmalısın</a></li>
+<li><a href="#1-proje-ne-yapıyor--büyük-resim">Proje ne yapıyor — büyük resim</a></li>
+<li><a href="#2-bilmen-gereken-temel-kavramlar">Bilmen gereken temel kavramlar</a></li>
+<li><a href="#3-proje-yapısı-ve-dosyaların-görevleri">Proje yapısı ve dosyaların görevleri</a></li>
+<li><a href="#4-programın-baştan-sona-akışı">Programın baştan sona akışı</a></li>
+<li><a href="#5-fonksiyonlar--çalışma-sırasıyla-tek-tek">Fonksiyonlar — çalışma sırasıyla, tek tek</a></li>
+<li><a href="#6-uçtan-uca-örnek-what-is-the-sum-of-2-and-3">Uçtan uca örnek: &quot;What is the sum of 2 and 3?&quot;</a></li>
+</ol>
+<hr class="gap">
+
+</section>
+<section class="chapter" data-chapter="0-bu-dosyayı-nasıl-çalışmalısın" aria-labelledby="0-bu-dosyayı-nasıl-çalışmalısın">
+<h2 id="0-bu-dosyayı-nasıl-çalışmalısın" class="mdh rv">0. Bu dosyayı nasıl çalışmalısın</h2>
+<ol>
+<li><strong>Önce 1. ve 2. bölümü</strong> oku. Kavramları oturtmadan fonksiyonlara geçme; savunmada ilk sorulan şey &quot;constrained decoding nedir?&quot; olur.</li>
+<li><strong>4. bölümdeki akış şemasını</strong> kâğıda kendin çiz. Ezberleme, çiz.</li>
+<li><strong>5. bölümü editörde kod açıkken</strong> oku. Her fonksiyonda dosyaya bak, satırları takip et.</li>
+<li><strong>6. bölümdeki örneği</strong> kendi kendine sesli anlat. Değerlendiriciye anlatacağın şey tam olarak bu.</li>
+<li><strong>10. bölümdeki soruları</strong> cevaplara bakmadan cevaplamaya çalış, sonra kontrol et.</li>
+<li><strong>11. bölümdeki tariflerden en az 3 tanesini gerçekten uygula</strong>, çalıştır, sonra <code>git checkout .</code> ile geri al. Canlı değişiklik istenirse eller alışkın olsun.</li>
+</ol>
+<hr class="gap">
+<nav class="pager" aria-label="Bölümler arası gezinme"><a class="pg pg-prev" href="#icindekiler"><span>Önceki</span>İçindekiler</a><a class="pg pg-next" href="#1-proje-ne-yapıyor--büyük-resim"><span>Sonraki</span>1. Proje ne yapıyor — büyük resim</a></nav>
+</section>
+<section class="chapter" data-chapter="1-proje-ne-yapıyor--büyük-resim" aria-labelledby="1-proje-ne-yapıyor--büyük-resim">
+<h2 id="1-proje-ne-yapıyor--büyük-resim" class="mdh rv">1. Proje ne yapıyor — büyük resim</h2>
+<h3 id="11-tek-cümlede" class="mdh rv">1.1 Tek cümlede</h3>
+<p><strong>Doğal dilde yazılmış bir isteği</strong> (&quot;What is the sum of 2 and 3?&quot;) alıp, onu <strong>çalıştırılabilir bir fonksiyon çağrısına</strong> çeviriyor:</p>
+<figure class="code rv" data-lang="json"><div class="code-bar"><span>JSON</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;prompt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;What is the sum of 2 and 3?&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;fn_add_numbers&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-attr">&quot;a&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2.0</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;b&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">3.0</span><span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span></code></pre></figure>
+<p>Program soruyu <strong>cevaplamıyor</strong> (5 demiyor). Soruyu cevaplamak için <strong>hangi fonksiyonun hangi argümanlarla çağrılması gerektiğini</strong> söylüyor.</p>
+<figure class="w rv" data-w="p2j" data-ui>
+<p class="w-title">İstekten çağrıya</p>
+<div class="p2j">
+  <div class="p2j-in"><span class="p2j-k">prompt</span><p class="p2j-prompt">What is the sum of 2 and 3?</p></div>
+  <div class="p2j-mid" aria-hidden="true"><span class="p2j-pulse"></span></div>
+  <div class="p2j-out"><code class="p2j-line">{</code><code class="p2j-line">  "prompt": "What is the sum of 2 and 3?",</code><code class="p2j-line p2j-hot">  "name": "fn_add_numbers",</code><code class="p2j-line p2j-hot">  "parameters": {"a": 2.0, "b": 3.0}</code><code class="p2j-line">}</code></div>
+</div>
+<div class="w-ctrl"><button type="button" class="wbtn" data-act="replay">Tekrar oynat</button></div>
+<figcaption>İskelet programdan gelir; model yalnızca vurgulu iki değeri üretir: fonksiyon adı ve argümanlar.</figcaption>
+</figure><h3 id="12-buna-neden-function-calling-deniyor-neden-önemli" class="mdh rv">1.2 Buna neden &quot;function calling&quot; deniyor, neden önemli</h3>
+<p>LLM&#39;ler (büyük dil modelleri) insan dilini iyi anlar ama çıktıları <strong>serbest metindir</strong>. Bir programın bu metni kullanabilmesi için çıktının <strong>yapılandırılmış</strong> (JSON gibi) ve <strong>şemaya uygun</strong> (doğru anahtarlar, doğru tipler) olması gerekir.</p>
+<p>Function calling bu köprüyü kuruyor:</p>
+<ul>
+<li>Asistanlar API çağırabiliyor, veritabanı sorgulayabiliyor (&quot;yarın İstanbul&#39;da hava?&quot; → <code>get_weather(city=&quot;Istanbul&quot;, day=&quot;tomorrow&quot;)</code>).</li>
+<li>Hesaplamalar modelin kafasından değil, gerçek koddan geliyor.</li>
+<li>Uzun bir metinden yapılandırılmış veri çıkarılabiliyor.</li>
+</ul>
+<h3 id="13-asıl-problem-küçük-model-güvenilmez" class="mdh rv">1.3 Asıl problem: küçük model güvenilmez</h3>
+<p>Kullandığımız model <strong>Qwen3-0.6B</strong>, yani yaklaşık 0.6 milyar parametreli, çok küçük bir model. Subject&#39;e göre böyle bir modele &quot;bana JSON ver&quot; diye sorunca belki <strong>%30</strong> oranında geçerli JSON üretir. Kalan durumlarda:</p>
+<ul>
+<li>parantez kapatmayı unutur,</li>
+<li>sayı yerine <code>&quot;iki&quot;</code> yazar,</li>
+<li>olmayan bir fonksiyon adı uydurur,</li>
+<li>JSON&#39;un etrafına &quot;Sure! Here is your answer:&quot; gibi metin ekler.</li>
+</ul>
+<figure class="w rv" data-w="tries" data-ui>
+<p class="w-title">On deneme, iki yöntem</p>
+<div class="seg" role="radiogroup" aria-label="Üretim yöntemi">
+  <button type="button" role="radio" aria-checked="true" data-mode="free">Rica et: "bana JSON ver"</button>
+  <button type="button" role="radio" aria-checked="false" data-mode="cd">Constrained decoding</button>
+</div>
+<ol class="tries" aria-live="polite"></ol>
+<p class="tries-score"><strong class="tries-n">3 / 10</strong> <span class="tries-s">geçerli JSON</span></p>
+<figcaption>Temsili örnek. Serbest üretimdeki ~%30 oran subject'ten; hatalar 1.3'teki listeden. Kısıtlı çözümleme geçerliliği %100 yapar, doğruluğu yine model belirler.</figcaption>
+</figure><h3 id="14-çözüm-constrained-decoding-kısıtlı-çözümleme" class="mdh rv">1.4 Çözüm: constrained decoding (kısıtlı çözümleme)</h3>
+<p>Modele <strong>rica etmek</strong> yerine, modelin <strong>seçebileceği tokenleri kısıtlıyoruz</strong>. Model her adımda bütün kelime dağarcığı için bir puan üretir; biz geçersiz olan tokenlerin puanını <strong>eksi sonsuz</strong> yapıyoruz. Model istese bile geçersiz bir token seçemiyor.</p>
+<p>Sonuç:</p>
+<ul>
+<li>Fonksiyon adı <strong>her zaman</strong> tanımlı fonksiyonlardan biri oluyor.</li>
+<li><code>number</code> tipindeki argüman <strong>her zaman</strong> <code>float()</code> ile parse edilebilen bir sayı oluyor.</li>
+<li><code>string</code> her zaman düzgün kapanmış bir metin oluyor.</li>
+<li><code>boolean</code> her zaman <code>true</code> veya <code>false</code> oluyor.</li>
+</ul>
+<p><strong>Kritik ayrım (savunmada mutlaka söyle):</strong></p>
+<div class="table-wrap rv" tabindex="0" role="region" aria-label="Tablo"><table>
+<thead>
+<tr>
+<th>Kavram</th>
+<th>Garanti mi?</th>
+<th>Neden</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Geçerlilik</strong> (JSON doğru, tipler doğru)</td>
+<td><span class="mk mk-y" role="img" aria-label="evet" title="evet"></span> %100 garanti</td>
+<td>Geçersiz token fiziksel olarak seçilemiyor</td>
+</tr>
+<tr>
+<td><strong>Doğruluk</strong> (doğru fonksiyon, doğru değer)</td>
+<td><span class="mk mk-n" role="img" aria-label="hayır" title="hayır"></span> Garanti değil</td>
+<td>Geçerli seçenekler arasından seçimi hâlâ model yapıyor</td>
+</tr>
+</tbody></table>
+</div>
+<p>Constrained decoding modeli <strong>akıllandırmaz</strong>, sadece <strong>kurallara uymaya zorlar</strong>.</p>
+<h3 id="15-subjectin-hedefleri" class="mdh rv">1.5 Subject&#39;in hedefleri</h3>
+<ul>
+<li><strong>%90+ doğruluk</strong>: doğru fonksiyon ve doğru argümanlar.</li>
+<li><strong>%100 geçerli JSON</strong>.</li>
+<li><strong>5 dakikanın altında</strong> bütün test promptlarını işlemek.</li>
+<li><strong>Hiç çökmemek</strong>: bozuk dosya, eksik dosya gibi durumlarda net hata mesajı vermek.</li>
+</ul>
+<h3 id="16-yasaklar-mutlaka-bil" class="mdh rv">1.6 Yasaklar (mutlaka bil)</h3>
+<ul>
+<li><code>dspy</code>, <code>outlines</code>, <code>transformers</code>, <code>pytorch</code>, <code>huggingface</code> gibi paketleri <strong>kendi kodunda</strong> kullanmak yasak. (<code>llm_sdk</code> içeride kullanıyor, o serbest.)</li>
+<li><code>llm_sdk</code> paketinin <strong>private</strong> (alt çizgiyle başlayan, örneğin <code>_model</code>, <code>_tokenizer</code>) üyelerine erişmek yasak.</li>
+<li>Fonksiyonu <strong>heuristic</strong> ile seçmek yasak (&quot;promptta &#39;sum&#39; geçiyorsa <code>fn_add_numbers</code> seç&quot; gibi). Seçimi <strong>LLM yapmalı</strong>.</li>
+<li>İzinli paketler: <code>numpy</code>, <code>json</code>, <code>pydantic</code> (sınıflar pydantic ile yazılmak zorunda).</li>
+</ul>
+<hr class="gap">
+<nav class="pager" aria-label="Bölümler arası gezinme"><a class="pg pg-prev" href="#0-bu-dosyayı-nasıl-çalışmalısın"><span>Önceki</span>0. Bu dosyayı nasıl çalışmalısın</a><a class="pg pg-next" href="#2-bilmen-gereken-temel-kavramlar"><span>Sonraki</span>2. Bilmen gereken temel kavramlar</a></nav>
+</section>
+<section class="chapter" data-chapter="2-bilmen-gereken-temel-kavramlar" aria-labelledby="2-bilmen-gereken-temel-kavramlar">
+<h2 id="2-bilmen-gereken-temel-kavramlar" class="mdh rv">2. Bilmen gereken temel kavramlar</h2>
+<h3 id="21-token-ve-tokenizer" class="mdh rv">2.1 Token ve tokenizer</h3>
+<p>Model metni karakter karakter ya da kelime kelime görmez; <strong>token</strong> denen parçalara bölünmüş halini görür. Bir token bir harf, bir kelime parçası ya da tam bir kelime olabilir.</p>
+<figure class="code rv" data-lang="text"><div class="code-bar"><span>Metin</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs">&quot;What is the sum of 2 and 3?&quot;
+→ [&quot;What&quot;, &quot;Ġis&quot;, &quot;Ġthe&quot;, &quot;Ġsum&quot;, &quot;Ġof&quot;, &quot;Ġ&quot;, &quot;2&quot;, &quot;Ġand&quot;, &quot;Ġ&quot;, &quot;3&quot;, &quot;?&quot;]   (temsili)</code></pre></figure>
+<p>Bu bölme işini <strong>tokenizer</strong> yapar. Qwen, <strong>BPE (Byte Pair Encoding)</strong> kullanır: sık geçen karakter çiftlerini tekrar tekrar birleştirerek bir kelime dağarcığı oluşturur.</p>
+<p><strong>Qwen&#39;e özgü faydalı bilgi:</strong> Qwen tokenizer&#39;ı rakamları <strong>tek tek</strong> böler. <code>265</code> sayısı tek bir token değil, <code>&quot;2&quot;</code>, <code>&quot;6&quot;</code>, <code>&quot;5&quot;</code> olarak üç token. Bu yüzden sayı üretimi rakam rakam ilerliyor.</p>
+<figure class="w rv" data-w="tok" data-ui>
+<p class="w-title">Kendin böl</p>
+<label class="field"><span>Metin</span><input type="text" class="tok-in" value="What is the sum of 2 and 3?" spellcheck="false" autocomplete="off"></label>
+<div class="tok-out" aria-live="polite"></div>
+<div class="w-ctrl"><label class="sw"><input type="checkbox" class="tok-raw" checked> Vocab görünüşü (<code>Ġ</code>)</label><span class="tok-n"></span></div>
+<figcaption>Temsili bölme: kelimeler başındaki boşlukla birlikte tek token, rakamlar Qwen'deki gibi tek tek. Türkçe harfler bayt düzeyinde iki karaktere dönüşür.</figcaption>
+</figure><h3 id="22-vocab-kelime-dağarcığı-ve-vocabjson" class="mdh rv">2.2 Vocab (kelime dağarcığı) ve <code>vocab.json</code></h3>
+<p>Modelin bildiği bütün tokenlerin listesi. Her tokenin bir <strong>id</strong>&#39;si (tam sayı) var. <code>vocab.json</code> bunu bir sözlük olarak tutuyor:</p>
+<figure class="code rv" data-lang="json"><div class="code-bar"><span>JSON</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs"><span class="hljs-punctuation">{</span><span class="hljs-attr">&quot;!&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;\&quot;&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;#&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2</span><span class="hljs-punctuation">,</span> ...<span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;Ġthe&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">279</span><span class="hljs-punctuation">,</span> ...<span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;fn&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">8822</span><span class="hljs-punctuation">,</span> ...<span class="hljs-punctuation">}</span></code></pre></figure>
+<p>(id&#39;ler temsili.) Qwen&#39;de yaklaşık <strong>151 bin</strong> token var.</p>
+<p>Subject&#39;in ipucu: <em>&quot;Think about how you can use the vocabulary JSON file to map between tokens and their string representations.&quot;</em> Tam olarak bunu yapıyoruz: hangi tokenin geçerli olduğuna karar vermek için her tokenin <strong>metnini</strong> bilmemiz gerekiyor.</p>
+<h3 id="23-ġ-ve-ċ-nedir-byte-level-bpe" class="mdh rv">2.3 <code>Ġ</code> ve <code>Ċ</code> nedir? (Byte-level BPE)</h3>
+<p>BPE tokenizer&#39;ı her şeyi <strong>bayt</strong> düzeyinde çalışır. Ama vocab dosyası okunabilir metin olmalı ve içinde boşluk, satır sonu gibi görünmez karakterler sorun çıkarır. Çözüm olarak her bayt, <strong>görünür bir Unicode karakterine</strong> eşlenir:</p>
+<div class="table-wrap rv" tabindex="0" role="region" aria-label="Tablo"><table>
+<thead>
+<tr>
+<th>Bayt</th>
+<th>Anlamı</th>
+<th>Vocab&#39;ta görünüşü</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>0x20</code> (32)</td>
+<td>boşluk</td>
+<td><code>Ġ</code> (U+0120)</td>
+</tr>
+<tr>
+<td><code>0x0A</code> (10)</td>
+<td>satır sonu <code>\n</code></td>
+<td><code>Ċ</code> (U+010A)</td>
+</tr>
+<tr>
+<td><code>0x41</code> (65)</td>
+<td><code>A</code></td>
+<td><code>A</code> (kendisi)</td>
+</tr>
+</tbody></table>
+</div>
+<p>Yani:</p>
+<ul>
+<li><code>&quot;Ġhello&quot;</code> aslında <code>&quot; hello&quot;</code> demek (başında boşluk).</li>
+<li><code>&quot;Ċ&quot;</code> aslında <code>&quot;\n&quot;</code> demek.</li>
+</ul>
+<p>Projede <code>Ċ</code> tokenini <strong>sayının bittiğini</strong> bildirmek için kullanıyoruz (<code>NUMBER_STOP_TOKEN</code>). <code>decode_bpe_string</code> fonksiyonu da bu eşlemeyi tersine çevirip gerçek metni elde ediyor.</p>
+<figure class="w rv" data-w="bytes" data-ui>
+<p class="w-title">Bayttan görünür karaktere</p>
+<label class="field"><span>Metin (Enter satır sonu ekler)</span><textarea class="bytes-in" rows="2" spellcheck="false">Merhaba dünya
+hello</textarea></label>
+<div class="bytes-out" aria-live="polite"></div>
+<p class="bytes-vis"><span>Vocab'taki hali:</span> <code class="bytes-str"></code></p>
+<figcaption>Her karakterin UTF-8 baytları ve vocab'taki karşılıkları. Mavi olanlar 256'dan başlayan kod noktalarına taşınan yazdırılamaz baytlar.</figcaption>
+</figure><h3 id="24-token-id-ve-input_ids" class="mdh rv">2.4 Token id ve <code>input_ids</code></h3>
+<p>Model metni değil, <strong>id listesini</strong> alır:</p>
+<figure class="code rv" data-lang="text"><div class="code-bar"><span>Metin</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs">&quot;What is the sum&quot; → [3838, 374, 279, 2629]   (temsili)</code></pre></figure>
+<p>Bu listeye <code>input_ids</code> diyoruz. <code>model.encode(text)</code> metni bu listeye çeviriyor.</p>
+<h3 id="25-logit" class="mdh rv">2.5 Logit</h3>
+<p>Model bir <code>input_ids</code> listesi alınca, <strong>bir sonraki token</strong> için vocab&#39;taki <strong>her token</strong> için bir puan döndürür. Bu puanlara <strong>logit</strong> denir.</p>
+<figure class="code rv" data-lang="text"><div class="code-bar"><span>Metin</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs">model.get_logits_from_input_ids([3838, 374, 279, 2629])
+→ [-3.2, 0.1, 5.7, ..., 12.4, ...]   # ~151 bin sayı</code></pre></figure>
+<ul>
+<li>Logit ne kadar yüksekse model o tokeni o kadar &quot;istiyor&quot;.</li>
+<li>Logitler olasılık değil, ham puan. Olasılığa çevirmek için <strong>softmax</strong> uygulanır: <code>p_i = e^(logit_i) / Σ e^(logit_j)</code>.</li>
+<li>Biz softmax&#39;a gerek duymuyoruz, çünkü sadece en yüksek puanı arıyoruz (<strong>argmax</strong>). Softmax sıralamayı değiştirmez.</li>
+</ul>
+<h3 id="26-otoregresif-üretim-token-token" class="mdh rv">2.6 Otoregresif üretim (token token)</h3>
+<p>Model metni <strong>bir seferde</strong> üretmez:</p>
+<figure class="code rv" data-lang="text"><div class="code-bar"><span>Metin</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs">1. input_ids → model → logitler → en iyi token seçilir
+2. seçilen token input_ids'e eklenir
+3. 1. adıma dön</code></pre></figure>
+<p>Her adımda bir <strong>forward pass</strong> (modelin bir kez çalıştırılması) yapılıyor. Programın hızını belirleyen şey bu forward pass sayısı.</p>
+<figure class="w rv" data-w="loop" data-ui>
+<p class="w-title">Döngü, adım adım</p>
+<div class="loop">
+  <div class="loop-ids"><span class="loop-k">input_ids</span><div class="loop-row"></div></div>
+  <div class="loop-model"><span class="loop-box">model</span><div class="loop-bars" aria-hidden="true"></div></div>
+  <p class="loop-say" aria-live="polite"></p>
+</div>
+<div class="w-ctrl"><button type="button" class="wbtn" data-act="step">Bir adım</button><button type="button" class="wbtn" data-act="play">Oynat</button><button type="button" class="wbtn" data-act="reset">Sıfırla</button><span class="loop-n">forward pass: 0</span></div>
+<figcaption>Her adım bir forward pass: logitler gelir, en iyi token seçilir, input_ids'e eklenir ve döngü baştan başlar.</figcaption>
+</figure><h3 id="27-greedy-seçim" class="mdh rv">2.7 Greedy seçim</h3>
+<p>Her adımda en yüksek logitli tokeni seçmeye <strong>greedy decoding</strong> denir. Projede bunu kullanıyoruz (rastgele örnekleme yok). Avantajı: <strong>deterministik</strong>, yani aynı girdi her zaman aynı çıktıyı verir.</p>
+<h3 id="28-maskeleme-ve--inf" class="mdh rv">2.8 Maskeleme ve <code>-inf</code></h3>
+<p>Constrained decoding&#39;in kalbi:</p>
+<figure class="code rv" data-lang="text"><div class="code-bar"><span>Metin</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs">logitler:   [ 5.1,  9.8,  2.3,  7.7 ]
+geçerli mi: [  ✗,    ✗,    ✓,    ✓  ]
+maskeli:    [-inf, -inf,  2.3,  7.7 ]   → argmax = 3. index</code></pre></figure>
+<p>Model 1. indexi (9.8) en çok istiyordu ama geçersizdi. Maskeden sonra en iyi <strong>geçerli</strong> token seçiliyor.</p>
+<p><strong>Neden <code>-inf</code>, neden <code>0</code> değil?</strong> Logitler negatif olabilir. <code>0</code> yapsaydık, bütün geçerli tokenlerin logiti negatifken geçersiz token (0) kazanırdı. <code>-inf</code> her sayıdan küçük, ayrıca softmax&#39;ta <code>e^(-inf) = 0</code>, yani olasılığı tam sıfır.</p>
+<figure class="w rv" data-w="mask" data-ui>
+<p class="w-title">Maskeyi sen uygula</p>
+<div class="seg" role="radiogroup" aria-label="Logit seti">
+  <button type="button" role="radio" aria-checked="true" data-set="0">Örnek logitler</button>
+  <button type="button" role="radio" aria-checked="false" data-set="1">Hepsi negatif</button>
+</div>
+<div class="mask-chart" aria-hidden="true"></div>
+<div class="mask-table"></div>
+<div class="seg" role="radiogroup" aria-label="Maske">
+  <button type="button" role="radio" aria-checked="false" data-m="none">Maske yok</button>
+  <button type="button" role="radio" aria-checked="false" data-m="zero">Geçersize 0</button>
+  <button type="button" role="radio" aria-checked="true" data-m="inf">Geçersize -inf</button>
+</div>
+<p class="mask-say" aria-live="polite"></p>
+<figcaption>Geçerli/geçersiz işaretine dokunarak değiştirebilirsin. Logitler negatifken 0 ile maskelemek geçersiz tokene kazandırır.</figcaption>
+</figure><h3 id="29-gramer-fragment-ve-prefix-düşüncesi" class="mdh rv">2.9 Gramer, &quot;fragment&quot; ve &quot;prefix&quot; düşüncesi</h3>
+<p>Bir tokenin geçerli olup olmadığına karar verirken tek karakter değil, <strong>şu ana kadar üretilen metin + aday token</strong> birlikte kontrol ediliyor:</p>
+<figure class="code rv" data-lang="text"><div class="code-bar"><span>Metin</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs">şu ana kadar: &quot;12&quot;
+aday token:   &quot;.&quot;    → &quot;12.&quot;  → hâlâ sayı olabilir mi? EVET → geçerli
+aday token:   &quot;a&quot;    → &quot;12a&quot;  → sayı olabilir mi? HAYIR → geçersiz</code></pre></figure>
+<p>İki ayrı soru var. Bunları karıştırma:</p>
+<div class="table-wrap rv" tabindex="0" role="region" aria-label="Tablo"><table>
+<thead>
+<tr>
+<th>Soru</th>
+<th>Fonksiyon örneği</th>
+<th><code>&quot;12.&quot;</code> için</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Devam edebilir mi?</strong> (validity)</td>
+<td><code>is_valid_number_fragment</code></td>
+<td><span class="mk mk-y" role="img" aria-label="evet" title="evet"></span> evet</td>
+</tr>
+<tr>
+<td><strong>Burada bitebilir mi?</strong> (completeness)</td>
+<td><code>is_complete_number</code></td>
+<td><span class="mk mk-n" role="img" aria-label="hayır" title="hayır"></span> hayır</td>
+</tr>
+</tbody></table>
+</div>
+<p>Kural: <strong>gramerin kabul ettiği her parça, bir şekilde tamamlanabilir olmalı.</strong> Aksi halde döngü takılır. (Projede <code>.5</code> hatası tam olarak buydu; bkz. 9. bölüm ve README &quot;Challenges&quot;.)</p>
+<hr class="gap">
+<nav class="pager" aria-label="Bölümler arası gezinme"><a class="pg pg-prev" href="#1-proje-ne-yapıyor--büyük-resim"><span>Önceki</span>1. Proje ne yapıyor — büyük resim</a><a class="pg pg-next" href="#3-proje-yapısı-ve-dosyaların-görevleri"><span>Sonraki</span>3. Proje yapısı ve dosyaların görevleri</a></nav>
+</section>
+<section class="chapter" data-chapter="3-proje-yapısı-ve-dosyaların-görevleri" aria-labelledby="3-proje-yapısı-ve-dosyaların-görevleri">
+<h2 id="3-proje-yapısı-ve-dosyaların-görevleri" class="mdh rv">3. Proje yapısı ve dosyaların görevleri</h2>
+<figure class="code rv" data-lang="text"><div class="code-bar"><span>Metin</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs">callme/
+├── Makefile                 # install, run, debug, clean, lint, lint-strict
+├── pyproject.toml           # bağımlılıklar + mypy ayarları
+├── uv.lock                  # bağımlılıkların kilitli sürümleri
+├── .flake8                  # flake8: llm_sdk ve .venv hariç
+├── .gitignore               # data/output/, .venv, cache'ler
+├── README.md                # zorunlu dokümantasyon (İngilizce)
+├── data/input/
+│   ├── functions_definition.json    # çağrılabilecek fonksiyonlar
+│   └── function_calling_tests.json  # işlenecek promptlar
+├── llm_sdk/                 # HAZIR VERİLEN paket (dokunmuyoruz)
+│   └── llm_sdk/__init__.py  # Small_LLM_Model sınıfı
+└── src/
+    ├── __init__.py          # boş; src'yi paket yapıyor
+    ├── __main__.py          # giriş noktası, dosya okuma/yazma, akış
+    ├── models.py            # pydantic modelleri
+    ├── vocab.py             # vocab.json'u okuma
+    ├── grammar.py           # SAF kurallar: hangi token geçerli?
+    └── decoding.py          # modelle konuşan üretim döngüleri</code></pre></figure>
+<h3 id="31-katmanlar--neden-böyle-bölündü" class="mdh rv">3.1 Katmanlar — neden böyle bölündü</h3>
+<figure class="code rv" data-lang="text"><div class="code-bar"><span>Metin</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs">__main__.py   → &quot;Ne yapılacak?&quot;     (dosyalar, akış, hatalar)
+decoding.py   → &quot;Nasıl üretilecek?&quot; (model + döngüler)
+grammar.py    → &quot;Ne geçerli?&quot;       (saf kurallar, model YOK)
+models.py     → &quot;Veri neye benzer?&quot; (pydantic şemaları)
+vocab.py      → &quot;Tokenler neler?&quot;   (vocab yükleme)</code></pre></figure>
+<p><strong>En önemli tasarım kararı:</strong> <code>grammar.py</code> modeli hiç kullanmıyor. Sadece metin ve vocab alıp token id&#39;leri döndürüyor. Bu sayede:</p>
+<ul>
+<li>Kurallar tek başına okunabiliyor.</li>
+<li>0.6B&#39;lik modeli yüklemeden test edilebiliyor (sahte modelli test böyle yapıldı).</li>
+</ul>
+<h3 id="32-yapılandırma-dosyaları" class="mdh rv">3.2 Yapılandırma dosyaları</h3>
+<p><strong><code>pyproject.toml</code></strong></p>
+<ul>
+<li><code>requires-python = &quot;&gt;=3.10&quot;</code> → subject 3.10+ istiyor.</li>
+<li><code>dependencies</code>: <code>numpy</code>, <code>pydantic</code>, <code>llm-sdk</code>.</li>
+<li><code>[tool.uv.sources] llm-sdk = { path = &quot;llm_sdk&quot;, editable = true }</code> → <code>llm_sdk</code> PyPI&#39;den değil, <strong>yerel klasörden</strong> kuruluyor. <code>editable</code> ise kopyalanmadan, klasördeki koddan doğrudan kullanılıyor demek.</li>
+<li><code>[dependency-groups] dev</code>: <code>flake8</code>, <code>mypy</code> → <code>uv sync</code> bunları da kurar.</li>
+<li><code>[tool.mypy]</code> ve <code>overrides</code>: <code>.venv</code> hariç, <code>llm_sdk</code> hataları yok sayılıyor (bizim kodumuz değil). <code>src.vocab</code> için <code>warn_return_any = false</code>, çünkü <code>json.load</code> tipi <code>Any</code> döndürüyor.</li>
+</ul>
+<p><strong><code>uv.lock</code></strong>: Bütün bağımlılıkların (dolaylı olanlar dahil) tam sürümleri. Değerlendirici <code>uv sync</code> çalıştırınca <strong>birebir aynı</strong> sürümler kurulur.</p>
+<p><strong><code>.flake8</code></strong>: <code>extend-exclude</code> ile <code>.venv</code>, <code>llm_sdk</code>, <code>.mypy_cache</code> hariç tutuluyor. <code>exclude</code> değil <code>extend-exclude</code>, çünkü <code>exclude</code> flake8&#39;in kendi varsayılan listesini (<code>.git</code>, <code>__pycache__</code>) siler.</p>
+<p><strong><code>Makefile</code></strong></p>
+<div class="table-wrap rv" tabindex="0" role="region" aria-label="Tablo"><table>
+<thead>
+<tr>
+<th>Kural</th>
+<th>Komut</th>
+<th>Ne yapar</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>install</code></td>
+<td><code>uv sync</code></td>
+<td><code>.venv</code> oluşturur, bağımlılıkları <code>uv.lock</code>&#39;a göre kurar</td>
+</tr>
+<tr>
+<td><code>run</code></td>
+<td><code>uv run python -m src</code></td>
+<td>Programı varsayılan yollarla çalıştırır</td>
+</tr>
+<tr>
+<td><code>debug</code></td>
+<td><code>uv run python -m pdb -m src</code></td>
+<td>pdb debugger altında çalıştırır</td>
+</tr>
+<tr>
+<td><code>clean</code></td>
+<td><code>find ... -exec rm -rf</code></td>
+<td><code>__pycache__</code>, <code>.mypy_cache</code>, <code>.pytest_cache</code>, <code>*.egg-info</code> siler</td>
+</tr>
+<tr>
+<td><code>lint</code></td>
+<td><code>flake8 .</code> + <code>mypy</code> (subject&#39;teki flag&#39;ler)</td>
+<td>Stil + tip kontrolü</td>
+</tr>
+<tr>
+<td><code>lint-strict</code></td>
+<td><code>flake8 .</code> + <code>mypy --strict</code></td>
+<td>Daha sıkı tip kontrolü (opsiyonel)</td>
+</tr>
+</tbody></table>
+</div>
+<p><code>.PHONY</code> satırı: bu isimlerin dosya değil komut olduğunu söyler. Aynı isimde bir dosya olsa bile kural çalışır.</p>
+<p><strong><code>python -m src</code> neden çalışıyor?</strong> <code>-m src</code>, Python&#39;a <code>src</code> paketini modül olarak çalıştırmasını söyler. Python da paket içindeki <code>__main__.py</code> dosyasını çalıştırır. Bu yüzden <code>__main__.py</code> içinde göreli importlar (<code>from .vocab import ...</code>) kullanabiliyoruz.</p>
+<h3 id="33-llm_sdk--ne-kullanıyoruz-ne-kullanmıyoruz" class="mdh rv">3.3 <code>llm_sdk</code> — ne kullanıyoruz, ne kullanmıyoruz</h3>
+<p><code>Small_LLM_Model</code> sınıfının <strong>public</strong> metodları:</p>
+<div class="table-wrap rv" tabindex="0" role="region" aria-label="Tablo"><table>
+<thead>
+<tr>
+<th>Metod</th>
+<th>Kullanıyor muyuz?</th>
+<th>Nerede</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>Small_LLM_Model()</code></td>
+<td><span class="mk mk-y" role="img" aria-label="evet" title="evet"></span></td>
+<td><code>main</code> — modeli bir kez yükler (varsayılan <code>Qwen/Qwen3-0.6B</code>)</td>
+</tr>
+<tr>
+<td><code>get_logits_from_input_ids(ids)</code></td>
+<td><span class="mk mk-y" role="img" aria-label="evet" title="evet"></span></td>
+<td><code>_select_next_token</code> — her adımda</td>
+</tr>
+<tr>
+<td><code>get_path_to_vocab_file()</code></td>
+<td><span class="mk mk-y" role="img" aria-label="evet" title="evet"></span></td>
+<td><code>load_vocab</code></td>
+</tr>
+<tr>
+<td><code>encode(text)</code></td>
+<td><span class="mk mk-y" role="img" aria-label="evet" title="evet"></span></td>
+<td><code>generate_function_call</code> — promptu id&#39;ye çevirmek için</td>
+</tr>
+<tr>
+<td><code>decode(ids)</code></td>
+<td><span class="mk mk-n" role="img" aria-label="hayır" title="hayır"></span></td>
+<td>Kendi <code>decode_bpe_string</code> fonksiyonumuzu kullanıyoruz</td>
+</tr>
+<tr>
+<td><code>get_path_to_merges_file()</code>, <code>get_path_to_tokenizer_file()</code></td>
+<td><span class="mk mk-n" role="img" aria-label="hayır" title="hayır"></span></td>
+<td>—</td>
+</tr>
+</tbody></table>
+</div>
+<p>Private üyelere (<code>_model</code>, <code>_tokenizer</code>, <code>_device</code> …) <strong>hiç dokunmuyoruz</strong> <span class="mk mk-y" role="img" aria-label="evet" title="evet"></span>.</p>
+<hr class="gap">
+<nav class="pager" aria-label="Bölümler arası gezinme"><a class="pg pg-prev" href="#2-bilmen-gereken-temel-kavramlar"><span>Önceki</span>2. Bilmen gereken temel kavramlar</a><a class="pg pg-next" href="#4-programın-baştan-sona-akışı"><span>Sonraki</span>4. Programın baştan sona akışı</a></nav>
+</section>
+<section class="chapter" data-chapter="4-programın-baştan-sona-akışı" aria-labelledby="4-programın-baştan-sona-akışı">
+<h2 id="4-programın-baştan-sona-akışı" class="mdh rv">4. Programın baştan sona akışı</h2>
+<figure class="code rv" data-lang="text"><div class="code-bar"><span>Metin</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs">uv run python -m src [--functions_definition F] [--input I] [--output O]
+│
+▼
+main()
+├─ parse_args()                          → F, I, O yolları
+├─ load_functions(F)
+│    └─ load_json_file(F) → pydantic FunctionDefinition listesi
+├─ load_prompts(I)
+│    └─ load_json_file(I) → pydantic PromptTest listesi
+├─ Small_LLM_Model()                     → model BİR KEZ yüklenir
+├─ load_vocab(model)                     → {&quot;token&quot;: id}
+├─ build_id_to_token(vocab)              → {id: &quot;token&quot;}
+├─ process_prompts(...)                  → her prompt için:
+│    └─ generate_function_call(...)
+│         │
+│         ├─ AŞAMA 1: FONKSİYON ADI
+│         │   prompt = katalog + istek + &quot;function name: &quot;
+│         │   generate_constrained_string(adaylar = ['&quot;fn_add_numbers&quot;', ...])
+│         │     döngü:
+│         │       get_valid_tokens_for_candidates → geçerli id'ler
+│         │       _select_next_token              → maskele + argmax
+│         │       filter_candidates               → imkânsız adayları at
+│         │
+│         ├─ AŞAMA 2: HER PARAMETRE İÇİN (sırayla)
+│         │   prompt = fonksiyon + açıklama + istek + önceki değerler
+│         │            + &quot;first argument (a) value: &quot;
+│         │   tip == number  → generate_number              → float()
+│         │   tip == integer → generate_number(no decimal)  → int()
+│         │   tip == string  → generate_string              → str
+│         │   tip == boolean → generate_constrained_string([&quot;true&quot;,&quot;false&quot;])
+│         │   başka tip      → ValueError (sadece bu prompt başarısız)
+│         │
+│         └─ FunctionCallResult(prompt, name, parameters)
+│
+└─ write_results(O, results)             → JSON dosyası</code></pre></figure>
+<p><strong>Hatalar:</strong> Başlangıçtaki her hata <code>RuntimeError</code> olur → <code>main</code> yakalar → <code>Error: ...</code> + exit 1. Tek bir prompttaki hata ise <code>process_prompts</code> tarafından yakalanır → o prompt atlanır, diğerleri devam eder.</p>
+<hr class="gap">
+<nav class="pager" aria-label="Bölümler arası gezinme"><a class="pg pg-prev" href="#3-proje-yapısı-ve-dosyaların-görevleri"><span>Önceki</span>3. Proje yapısı ve dosyaların görevleri</a><a class="pg pg-next" href="#5-fonksiyonlar--çalışma-sırasıyla-tek-tek"><span>Sonraki</span>5. Fonksiyonlar — çalışma sırasıyla, tek tek</a></nav>
+</section>
+<section class="chapter" data-chapter="5-fonksiyonlar--çalışma-sırasıyla-tek-tek" aria-labelledby="5-fonksiyonlar--çalışma-sırasıyla-tek-tek">
+<h2 id="5-fonksiyonlar--çalışma-sırasıyla-tek-tek" class="mdh rv">5. Fonksiyonlar — çalışma sırasıyla, tek tek</h2>
+<p>Her fonksiyon için: <strong>Ne yapar → Neden var → Nasıl çalışır → Dikkat edilecekler.</strong></p>
+<hr class="gap">
+<h3 id="50-pydantic-modelleri--srcmodelspy" class="mdh rv">5.0 Pydantic modelleri — <code>src/models.py</code></h3>
+<p>Fonksiyonlardan önce veri şekillerini bilmek gerekiyor, çünkü her yerde bunlar dolaşıyor.</p>
+<figure class="code rv" data-lang="python"><div class="code-bar"><span>Python</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs"><span class="hljs-keyword">class</span> <span class="hljs-title class_">ParameterSpec</span>(<span class="hljs-title class_ inherited__">BaseModel</span>):
+    <span class="hljs-built_in">type</span>: <span class="hljs-built_in">str</span>
+
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">FunctionDefinition</span>(<span class="hljs-title class_ inherited__">BaseModel</span>):
+    name: <span class="hljs-built_in">str</span>
+    description: <span class="hljs-built_in">str</span>
+    parameters: <span class="hljs-built_in">dict</span>[<span class="hljs-built_in">str</span>, ParameterSpec]
+    returns: ParameterSpec
+
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">PromptTest</span>(<span class="hljs-title class_ inherited__">BaseModel</span>):
+    prompt: <span class="hljs-built_in">str</span>
+
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">FunctionCallResult</span>(<span class="hljs-title class_ inherited__">BaseModel</span>):
+    prompt: <span class="hljs-built_in">str</span>
+    name: <span class="hljs-built_in">str</span>
+    parameters: <span class="hljs-built_in">dict</span>[<span class="hljs-built_in">str</span>, <span class="hljs-type">Any</span>]</code></pre></figure>
+<p><strong>Ne yapar:</strong> Girdi dosyalarının ve çıktının <strong>şeklini</strong> tanımlıyor.</p>
+<p><strong>Neden pydantic:</strong></p>
+<ul>
+<li>Subject zorunlu tutuyor (<em>&quot;All classes must use pydantic for validation&quot;</em>).</li>
+<li><code>FunctionDefinition.model_validate(item)</code> çağrısı <code>item</code> sözlüğünü kontrol ediyor: <code>name</code> var mı, string mi? <code>parameters</code> bir sözlük mü, her değerinde <code>type</code> var mı? Bir şey eksik ya da yanlış tipteyse <strong><code>ValidationError</code></strong> fırlatıyor.</li>
+<li>Doğrulama <strong>sınırda</strong> (dosya okunduğu anda) yapıldığı için programın geri kalanı güvenle <code>fn.name</code>, <code>param_spec.type</code> gibi alanlara erişebiliyor.</li>
+</ul>
+<p><strong><code>ParameterSpec.type</code> neden <code>str</code>, neden <code>Literal[&quot;number&quot;, ...]</code> değil:</strong>
+Eskiden <code>Literal</code> idi. Değerlendirici dosyaya <code>&quot;type&quot;: &quot;integer&quot;</code> ya da <code>&quot;array&quot;</code> eklerse <strong>bütün dosya reddediliyor</strong>, hiçbir prompt işlenmiyordu. Şimdi her tip adı yüklemede kabul ediliyor; desteklenmeyen bir tip sadece o fonksiyonu seçen promptta hata veriyor. Pydantic doğrulaması hâlâ var: <code>type</code> alanı eksikse ya da string değilse yine hata veriyor.</p>
+<p><strong><code>returns</code> neden var ama kullanılmıyor:</strong> Subject&#39;teki dosya formatında var, şemaya uygun olsun diye doğrulanıyor. Üretimde kullanılmıyor, çünkü biz fonksiyonu <strong>çağırmıyoruz</strong>, sadece çağrıyı tarif ediyoruz.</p>
+<p><strong><code>FunctionCallResult.parameters</code> neden <code>dict[str, Any]</code>:</strong> Değerler farklı tiplerde (<code>float</code>, <code>int</code>, <code>str</code>, <code>bool</code>) olabiliyor.</p>
+<p><strong>Pydantic&#39;in varsayılan davranışı:</strong> Girdi sözlüğünde <strong>fazladan</strong> anahtarlar varsa (örneğin fonksiyon tanımında <code>&quot;category&quot;: &quot;math&quot;</code>) <strong>sessizce yok sayılıyor</strong> (<code>extra=&#39;ignore&#39;</code>). Hata vermiyor.</p>
+<p><strong>Çıktı anahtarları:</strong> <code>FunctionCallResult</code> tam olarak <code>prompt</code>, <code>name</code>, <code>parameters</code> alanlarına sahip. <code>model_dump()</code> bunları bu sırayla sözlüğe çeviriyor. Subject&#39;in &quot;exactly the following keys&quot; şartı buradan karşılanıyor.</p>
+<hr class="gap">
+<h3 id="51-sabitler--src__main__py-başı" class="mdh rv">5.1 Sabitler — <code>src/__main__.py</code> başı</h3>
+<figure class="code rv" data-lang="python"><div class="code-bar"><span>Python</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs">DEFAULT_FUNCTIONS_PATH = <span class="hljs-string">&quot;data/input/functions_definition.json&quot;</span>
+DEFAULT_INPUT_PATH = <span class="hljs-string">&quot;data/input/function_calling_tests.json&quot;</span>
+DEFAULT_OUTPUT_PATH = <span class="hljs-string">&quot;data/output/function_calls.json&quot;</span></code></pre></figure>
+<p>Subject&#39;teki varsayılan yollar. Çıktı dosyasının adı <strong><code>function_calls.json</code></strong> olmak zorunda (V.4). <code>data/output/</code> klasörü <code>.gitignore</code> içinde, yani repoya girmiyor.</p>
+<hr class="gap">
+<h3 id="52-main--src__main__py" class="mdh rv">5.2 <code>main()</code> — <code>src/__main__.py</code></h3>
+<p><strong>Ne yapar:</strong> Programın tamamını yönetir; sırayla bütün adımları çağırır.</p>
+<p><strong>Nasıl çalışır:</strong></p>
+<figure class="code rv" data-lang="python"><div class="code-bar"><span>Python</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs"><span class="hljs-keyword">try</span>:
+    args = parse_args()
+    functions = load_functions(args.functions_definition)
+    prompts = load_prompts(args.<span class="hljs-built_in">input</span>)
+    <span class="hljs-keyword">try</span>:
+        model = Small_LLM_Model()
+    <span class="hljs-keyword">except</span> Exception <span class="hljs-keyword">as</span> e:
+        <span class="hljs-keyword">raise</span> RuntimeError(<span class="hljs-string">f&quot;Failed to load the model: <span class="hljs-subst">{e}</span>&quot;</span>) <span class="hljs-keyword">from</span> e
+    vocab = load_vocab(model)
+    id_to_token = build_id_to_token(vocab)
+    results = process_prompts(model, prompts, functions, vocab, id_to_token)
+    write_results(args.output, results)
+<span class="hljs-keyword">except</span> RuntimeError <span class="hljs-keyword">as</span> e:
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Error: <span class="hljs-subst">{e}</span>&quot;</span>, file=sys.stderr); sys.exit(<span class="hljs-number">1</span>)
+<span class="hljs-keyword">except</span> KeyboardInterrupt:
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;\nInterrupted by user.&quot;</span>, file=sys.stderr); sys.exit(<span class="hljs-number">130</span>)
+<span class="hljs-keyword">except</span> Exception <span class="hljs-keyword">as</span> e:
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Unexpected error: <span class="hljs-subst">{e}</span>&quot;</span>, file=sys.stderr); sys.exit(<span class="hljs-number">1</span>)</code></pre></figure>
+<p><strong>Neden bu sıra:</strong></p>
+<ol>
+<li><strong>Önce dosyalar, sonra model.</strong> Model yüklemek pahalı (saniyeler, ilk seferde indirme). Dosya bozuksa modeli hiç yüklemeden hızlıca hata vermek daha iyi.</li>
+<li><strong>Model bir kez yükleniyor</strong> ve bütün promptlara aynı nesne geçiriliyor. Bellek prompt sayısıyla artmıyor.</li>
+<li><strong><code>id_to_token</code> bir kez hesaplanıyor.</strong></li>
+</ol>
+<p><strong>Hata stratejisi:</strong></p>
+<ul>
+<li>Her yardımcı fonksiyon beklediği hataları <strong><code>RuntimeError</code></strong>&#39;a çevirip okunabilir bir mesaj ekliyor. <code>main</code>&#39;in tek bir <code>except RuntimeError</code> ile hepsini yakalayabilmesi bu sayede.</li>
+<li><code>Small_LLM_Model()</code> ne fırlatacağı bilinmeyen bir şey (internet hatası, disk, torch …). Bu yüzden içte <code>except Exception</code> var ve hata <code>RuntimeError</code>&#39;a çevriliyor.</li>
+<li><strong><code>except</code> sırası önemli:</strong> Python yukarıdan aşağı dener. <code>RuntimeError</code> da bir <code>Exception</code> olduğu için <code>Exception</code> en alta konmalı. Yoksa düzgün mesajların yerine &quot;Unexpected error&quot; basılır.</li>
+<li><strong><code>KeyboardInterrupt</code></strong> (Ctrl+C), <code>Exception</code>&#39;ın alt sınıfı değil, <code>BaseException</code>&#39;dan geliyor. Bu yüzden ayrı yakalanıyor. <strong>130</strong>, Unix&#39;te Ctrl+C ile kesilen programların standart çıkış kodu (128 + sinyal numarası 2).</li>
+<li><strong><code>from e</code></strong>: Orijinal hatayı zincire ekliyor (<code>__cause__</code>). Debug ederken asıl sebebi görebilmek için.</li>
+</ul>
+<p><strong><code>if __name__ == &quot;__main__&quot;: main()</code></strong>: Dosya doğrudan çalıştırıldığında <code>main()</code> çağrılır, import edildiğinde çağrılmaz. <code>python -m src</code> ile çalıştırıldığında <code>__name__</code> değeri <code>&quot;__main__&quot;</code> olur.</p>
+<hr class="gap">
+<h3 id="53-parse_args--src__main__py" class="mdh rv">5.3 <code>parse_args()</code> — <code>src/__main__.py</code></h3>
+<p><strong>Ne yapar:</strong> Komut satırı argümanlarını okur: <code>--functions_definition</code>, <code>--input</code>, <code>--output</code>.</p>
+<p><strong>Nasıl:</strong> <code>argparse.ArgumentParser</code> ve üç <code>add_argument</code>. Her birinin <code>default</code> değeri yukarıdaki sabitler; yani <strong>hepsi isteğe bağlı</strong>.</p>
+<p><strong>Dikkat:</strong></p>
+<ul>
+<li>Argüman adı <code>--functions_definition</code> (<strong>alt çizgili</strong>). argparse bunu <code>args.functions_definition</code> olarak sunuyor.</li>
+<li>Bilinmeyen bir argüman verilirse (<code>--foo</code>) argparse kendi hata mesajını basıp <code>SystemExit(2)</code> ile çıkıyor. Bu bir traceback değil, normal bir kullanım hatası.</li>
+<li><code>description=&quot;...&quot;</code> ve <code>help=&quot;...&quot;</code> şu an üç nokta. Değerlendirici <code>--help</code> çalıştırırsa anlamsız görünür. Bkz. 11. bölüm, Tarif 8.</li>
+</ul>
+<hr class="gap">
+<h3 id="54-load_json_filepath--src__main__py" class="mdh rv">5.4 <code>load_json_file(path)</code> — <code>src/__main__.py</code></h3>
+<p><strong>Ne yapar:</strong> Bir JSON dosyasını okuyup Python nesnesine çevirir.</p>
+<figure class="code rv" data-lang="python"><div class="code-bar"><span>Python</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs"><span class="hljs-keyword">try</span>:
+    <span class="hljs-keyword">with</span> <span class="hljs-built_in">open</span>(path, <span class="hljs-string">&quot;r&quot;</span>, encoding=<span class="hljs-string">&quot;utf-8&quot;</span>) <span class="hljs-keyword">as</span> f:
+        <span class="hljs-keyword">return</span> json.load(f)
+<span class="hljs-keyword">except</span> FileNotFoundError <span class="hljs-keyword">as</span> e:  → <span class="hljs-string">&quot;File not found: ...&quot;</span>
+<span class="hljs-keyword">except</span> json.JSONDecodeError <span class="hljs-keyword">as</span> e:  → <span class="hljs-string">&quot;Invalid JSON in file ...: ...&quot;</span>
+<span class="hljs-keyword">except</span> UnicodeDecodeError <span class="hljs-keyword">as</span> e:  → <span class="hljs-string">&quot;File ... is not valid UTF-8: ...&quot;</span>
+<span class="hljs-keyword">except</span> OSError <span class="hljs-keyword">as</span> e:  → <span class="hljs-string">&quot;Error reading file ...: ...&quot;</span></code></pre></figure>
+<p><strong>Neden:</strong></p>
+<ul>
+<li><code>with</code> (context manager): Subject istiyor. Hata olsa bile dosya <strong>otomatik kapanır</strong>, kaynak sızıntısı olmaz.</li>
+<li><code>encoding=&quot;utf-8&quot;</code>: Açıkça belirtilmezse sistem varsayılanı kullanılır; makineden makineye değişebilir.</li>
+</ul>
+<p><strong>Hata sınıfları ve sıraları:</strong></p>
+<div class="table-wrap rv" tabindex="0" role="region" aria-label="Tablo"><table>
+<thead>
+<tr>
+<th>Hata</th>
+<th>Ne zaman</th>
+<th>Kimin alt sınıfı</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>FileNotFoundError</code></td>
+<td>Dosya yok</td>
+<td><code>OSError</code></td>
+</tr>
+<tr>
+<td><code>json.JSONDecodeError</code></td>
+<td>JSON bozuk</td>
+<td><code>ValueError</code></td>
+</tr>
+<tr>
+<td><code>UnicodeDecodeError</code></td>
+<td>Dosya UTF-8 değil</td>
+<td><code>ValueError</code></td>
+</tr>
+<tr>
+<td><code>OSError</code></td>
+<td>İzin yok, dizin verildi, vs.</td>
+<td>—</td>
+</tr>
+</tbody></table>
+</div>
+<p><code>FileNotFoundError</code> bir <code>OSError</code> olduğu için <strong><code>OSError</code>&#39;dan önce</strong> yazılmak zorunda. Yoksa özel mesaj (&quot;File not found&quot;) hiç basılmaz.</p>
+<p><strong>Dönüş tipi neden <code>object</code>:</strong> JSON herhangi bir şey olabilir (liste, sözlük, sayı …). Şekli çağıran fonksiyon kontrol ediyor.</p>
+<hr class="gap">
+<h3 id="55-load_functionspath--src__main__py" class="mdh rv">5.5 <code>load_functions(path)</code> — <code>src/__main__.py</code></h3>
+<p><strong>Ne yapar:</strong> Fonksiyon tanımları dosyasını okuyup <code>FunctionDefinition</code> listesine çevirir.</p>
+<p><strong>Kontroller, sırasıyla:</strong></p>
+<ol>
+<li><code>load_json_file</code> → dosya okunabilir ve geçerli JSON mı?</li>
+<li><code>isinstance(payload, list)</code> → en dışta <strong>liste</strong> mi? (Örneğin bir sözlük verilirse: <code>Expected a list of function definitions ..., got dict</code>.)</li>
+<li><code>len(payload) == 0</code> → <strong>boş liste</strong> ise hata. Seçilecek hiçbir fonksiyon yoksa model bir şey üretemez.</li>
+<li>Her eleman için <code>FunctionDefinition.model_validate(item)</code> → pydantic şema kontrolü. Bir tanesi bile bozuksa bütün dosya reddediliyor (fonksiyon listesi tutarlı olmalı).</li>
+</ol>
+<hr class="gap">
+<h3 id="56-load_promptspath--src__main__py" class="mdh rv">5.6 <code>load_prompts(path)</code> — <code>src/__main__.py</code></h3>
+<p><code>load_functions</code> ile aynı mantık, tek farkla: <strong>boş liste kabul ediliyor</strong>. İşlenecek prompt yoksa çıktı <code>[]</code> olur; bu bir hata değil.</p>
+<p>Her eleman <code>PromptTest.model_validate(item)</code> ile kontrol ediliyor: <code>{&quot;prompt&quot;: &quot;...&quot;}</code> şeklinde olmalı.</p>
+<hr class="gap">
+<h3 id="57-small_llm_model--llm_sdk-hazır" class="mdh rv">5.7 <code>Small_LLM_Model()</code> — <code>llm_sdk</code> (hazır)</h3>
+<p>Bizim fonksiyonumuz değil ama bilmen gerekiyor:</p>
+<ul>
+<li>Varsayılan model <code>Qwen/Qwen3-0.6B</code>.</li>
+<li>Cihazı otomatik seçiyor: <code>mps</code> (Mac) &gt; <code>cuda</code> (NVIDIA) &gt; <code>cpu</code>.</li>
+<li>İlk çalıştırmada modeli Hugging Face&#39;ten indiriyor (<del>1.5 GB), sonra önbellekten (`</del>/.cache/huggingface`) kullanıyor.</li>
+</ul>
+<hr class="gap">
+<h3 id="58-load_vocabmodel--srcvocabpy" class="mdh rv">5.8 <code>load_vocab(model)</code> — <code>src/vocab.py</code></h3>
+<p><strong>Ne yapar:</strong> Modelin <code>vocab.json</code> dosyasını okuyup <code>{&quot;token_metni&quot;: id}</code> sözlüğü döndürür.</p>
+<figure class="code rv" data-lang="python"><div class="code-bar"><span>Python</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs"><span class="hljs-keyword">try</span>:
+    path = model.get_path_to_vocab_file()
+<span class="hljs-keyword">except</span> Exception <span class="hljs-keyword">as</span> e:
+    <span class="hljs-keyword">raise</span> RuntimeError(<span class="hljs-string">f&quot;Vocab file could not be found: <span class="hljs-subst">{e}</span>&quot;</span>) <span class="hljs-keyword">from</span> e
+
+<span class="hljs-keyword">try</span>:
+    <span class="hljs-keyword">with</span> <span class="hljs-built_in">open</span>(path, <span class="hljs-string">&quot;r&quot;</span>, encoding=<span class="hljs-string">&quot;utf-8&quot;</span>) <span class="hljs-keyword">as</span> f:
+        <span class="hljs-keyword">return</span> json.load(f)
+<span class="hljs-keyword">except</span> (OSError, ValueError) <span class="hljs-keyword">as</span> e:
+    <span class="hljs-keyword">raise</span> RuntimeError(<span class="hljs-string">f&quot;Vocab file could not be read: <span class="hljs-subst">{e}</span>&quot;</span>) <span class="hljs-keyword">from</span> e</code></pre></figure>
+<p><strong>Neden iki ayrı <code>try</code>:</strong></p>
+<ul>
+<li><strong>Birincisi:</strong> <code>get_path_to_vocab_file</code> içeride <code>hf_hub_download</code> çağırıyor. Bu, huggingface ya da requests kütüphanelerinden önceden bilinmeyen hatalar fırlatabilir. Bu yüzden <code>Exception</code>.</li>
+<li><strong>İkincisi:</strong> Dosya okuma. <code>OSError</code> bütün dosya hatalarını, <code>ValueError</code> hem <code>JSONDecodeError</code>&#39;ı hem <code>UnicodeDecodeError</code>&#39;ı kapsıyor.</li>
+</ul>
+<p><strong>Neden vocab&#39;a ihtiyacımız var:</strong> Her adımda &quot;bu token geçerli mi?&quot; diye sormak için <strong>her tokenin metnini</strong> bilmemiz gerekiyor. Model bize sadece id&#39;lere göre logit veriyor.</p>
+<hr class="gap">
+<h3 id="59-build_id_to_tokentoken_to_id--srcvocabpy" class="mdh rv">5.9 <code>build_id_to_token(token_to_id)</code> — <code>src/vocab.py</code></h3>
+<p><strong>Ne yapar:</strong> Sözlüğü ters çevirir: <code>{&quot;token&quot;: id}</code> → <code>{id: &quot;token&quot;}</code>.</p>
+<p><strong>Neden:</strong> Model en iyi tokeni bir <strong>index</strong> (id) olarak veriyor. O tokenin <strong>metnini</strong> öğrenmemiz gerekiyor (<code>generated_so_far</code>&#39;a eklemek için). Ters sözlük olmasaydı her adımda 151 bin elemanlı vocab&#39;ı tarayıp id&#39;yi aramamız gerekirdi (O(n)). Ters sözlükle bu O(1).</p>
+<p><strong>Neden bir kez, <code>main</code> içinde:</strong> Ters çevirme işi bir kez yapılıp bütün promptlara geçiriliyor; her promptta tekrar hesaplanmıyor.</p>
+<hr class="gap">
+<h3 id="510-process_promptsmodel-prompts-functions-vocab-id_to_token--src__main__py" class="mdh rv">5.10 <code>process_prompts(model, prompts, functions, vocab, id_to_token)</code> — <code>src/__main__.py</code></h3>
+<p><strong>Ne yapar:</strong> Her prompt için <code>generate_function_call</code> çağırır ve sonuçları toplar.</p>
+<figure class="code rv" data-lang="python"><div class="code-bar"><span>Python</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs"><span class="hljs-keyword">for</span> i, prompt_test <span class="hljs-keyword">in</span> <span class="hljs-built_in">enumerate</span>(prompts, start=<span class="hljs-number">1</span>):
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;[<span class="hljs-subst">{i}</span>/<span class="hljs-subst">{<span class="hljs-built_in">len</span>(prompts)}</span>] Processing prompt: ...&quot;</span>, file=sys.stderr)
+    <span class="hljs-keyword">try</span>:
+        result = generate_function_call(...)
+        results.append(result)
+    <span class="hljs-keyword">except</span> Exception <span class="hljs-keyword">as</span> e:
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Failed to process prompt ...: <span class="hljs-subst">{e}</span>&quot;</span>, file=sys.stderr)
+failed = <span class="hljs-built_in">len</span>(prompts) - <span class="hljs-built_in">len</span>(results)
+<span class="hljs-keyword">if</span> failed:
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;<span class="hljs-subst">{failed}</span>/<span class="hljs-subst">{<span class="hljs-built_in">len</span>(prompts)}</span> prompt(s) could not be processed.&quot;</span>, file=sys.stderr)
+<span class="hljs-keyword">return</span> results</code></pre></figure>
+<p><strong>Neden her prompt ayrı <code>try</code> içinde:</strong> Tek bir bozuk prompt (örneğin desteklenmeyen tipli bir fonksiyon seçen) bütün çalışmayı öldürmesin.</p>
+<p><strong>Neden <code>except Exception</code> (geniş):</strong> Bu bir &quot;batch&quot; döngüsü; hangi hatayla karşılaşırsak karşılaşalım diğer promptlara devam etmek istiyoruz. <code>KeyboardInterrupt</code> bunun içinde değil (<code>BaseException</code>), yani Ctrl+C hâlâ programı durdurabiliyor.</p>
+<p><strong>Neden <code>stderr</code>:</strong> İlerleme ve hata mesajları <strong>insan için</strong>, asıl çıktı (JSON dosyası) <strong>makine için</strong>. Bunları ayırmak iyi bir alışkanlık: <code>stdout</code>&#39;u bir dosyaya yönlendiren biri log mesajlarıyla karışık bir çıktı almaz.</p>
+<p><strong>Sondaki özet:</strong> Kaç promptun başarısız olduğunu net olarak gösteriyor. Subject <em>&quot;must always provide clear error messages&quot;</em> diyor.</p>
+<p><strong>Dikkat:</strong> Başarısız prompt çıktı dosyasında <strong>yer almıyor</strong>. Bu bilinçli bir karar: sahte ya da uydurma bir sonuç yazmak, şemaya uygun ama yanlış veri üretmek demek.</p>
+<hr class="gap">
+<h3 id="511-generate_function_callmodel-prompt-functions-vocab-id_to_token--srcdecodingpy" class="mdh rv">5.11 <code>generate_function_call(model, prompt, functions, vocab, id_to_token)</code> — <code>src/decoding.py</code></h3>
+<p><strong>Projenin merkezi.</strong> Bir prompt için tam fonksiyon çağrısını iki aşamada üretiyor.</p>
+<h4 id="aşama-1--fonksiyon-adı" class="mdh rv">Aşama 1 — Fonksiyon adı</h4>
+<figure class="code rv" data-lang="python"><div class="code-bar"><span>Python</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs">name_candidate = [<span class="hljs-string">&#x27;&quot;&#x27;</span> + fn.name + <span class="hljs-string">&#x27;&quot;&#x27;</span> <span class="hljs-keyword">for</span> fn <span class="hljs-keyword">in</span> functions]
+catalog = <span class="hljs-string">&quot;Available functions:\n&quot;</span>
+<span class="hljs-keyword">for</span> fn <span class="hljs-keyword">in</span> functions:
+    catalog += <span class="hljs-string">f&quot;- <span class="hljs-subst">{fn.name}</span>: <span class="hljs-subst">{fn.description}</span>\n&quot;</span>
+name_prompt = catalog + <span class="hljs-string">&quot;\n&quot;</span> + prompt + <span class="hljs-string">&quot;\nfunction name: &quot;</span>
+input_ids = model.encode(name_prompt)[<span class="hljs-number">0</span>].tolist()
+name_result = generate_constrained_string(model, input_ids, name_candidate, vocab, id_to_token)
+function_name = name_result.strip(<span class="hljs-string">&#x27;&quot;&#x27;</span>)</code></pre></figure>
+<p>Modele giden metin şöyle görünüyor:</p>
+<figure class="code rv" data-lang="text"><div class="code-bar"><span>Metin</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs">Available functions:
+- fn_add_numbers: Add two numbers together and return their sum.
+- fn_greet: Generate a greeting message for a person by name.
+- fn_reverse_string: Reverse a string and return the reversed result.
+- fn_get_square_root: Calculate the square root of a number.
+- fn_substitute_string_with_regex: Replace all occurrences matching a regex pattern in a string.
+
+What is the sum of 2 and 3?
+function name: </code></pre></figure>
+<p><strong>Adaylar neden tırnak içinde (<code>&#39;&quot;fn_add_numbers&quot;&#39;</code>):</strong>
+Asıl sebep <strong>önek (prefix) problemi</strong>. Diyelim ki <code>fn_add</code> ve <code>fn_add_numbers</code> adında iki fonksiyon var. Tırnaksız olsaydı model <code>fn_add</code> yazdığı anda iki aday da hâlâ mümkün olurdu: <code>fn_add</code> tamamlanmış, <code>fn_add_numbers</code> devam ediyor. Ne zaman duracağımızı bilemezdik. Kapanış tırnağı <strong>adın bittiğini açıkça işaretliyor</strong>: <code>&quot;fn_add&quot;</code> ile <code>&quot;fn_add_numbers&quot;</code> artık birbirinin öneki değil.</p>
+<p><strong><code>model.encode(...)[0].tolist()</code>:</strong> <code>encode</code> 2 boyutlu bir tensör döndürüyor (şekli <code>[1, n]</code>, batch boyutu 1). <code>[0]</code> ilk satırı alıyor, <code>.tolist()</code> da Python <code>list[int]</code>&#39;e çeviriyor.</p>
+<p><strong><code>.strip(&#39;&quot;&#39;)</code>:</strong> Baştaki ve sondaki tırnakları atıyor → <code>fn_add_numbers</code>.</p>
+<p><strong>Seçimi kim yapıyor?</strong> <strong>Model.</strong> Kod sadece &quot;tanımlı adlardan biri olmak zorunda&quot; kısıtını koyuyor. Hangisinin seçileceği tamamen logitlere bağlı. <strong>Heuristic yok</strong> (anahtar kelime eşleştirme, if-else yok).</p>
+<p><strong>Güvenlik kontrolü:</strong></p>
+<figure class="code rv" data-lang="python"><div class="code-bar"><span>Python</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs"><span class="hljs-keyword">for</span> fn <span class="hljs-keyword">in</span> functions:
+    <span class="hljs-keyword">if</span> fn.name == function_name:
+        selected_functions = fn
+        <span class="hljs-keyword">break</span>
+<span class="hljs-keyword">if</span> selected_functions <span class="hljs-keyword">is</span> <span class="hljs-literal">None</span>:
+    <span class="hljs-keyword">raise</span> ValueError(...)</code></pre></figure>
+<p>Teoride buraya hiç düşülmez (aday listesi dışında bir şey üretilemez). Ama <code>selected_functions</code>&#39;ın tipi <code>FunctionDefinition | None</code> olduğu için mypy&#39;yi memnun etmek ve savunmacı programlama için var.</p>
+<h4 id="aşama-2--parametreler" class="mdh rv">Aşama 2 — Parametreler</h4>
+<figure class="code rv" data-lang="python"><div class="code-bar"><span>Python</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs">context = <span class="hljs-string">&quot;&quot;</span>
+parameters = {}
+<span class="hljs-keyword">for</span> index, (param_name, param_spec) <span class="hljs-keyword">in</span> <span class="hljs-built_in">enumerate</span>(selected_functions.parameters.items()):
+    ordinal = ORDINAL_WORDS[index] <span class="hljs-keyword">if</span> index &lt; <span class="hljs-number">6</span> <span class="hljs-keyword">else</span> <span class="hljs-string">f&quot;<span class="hljs-subst">{index + <span class="hljs-number">1</span>}</span>th&quot;</span>   <span class="hljs-comment"># (gerçek kodda if/else)</span>
+    param_prompt = (
+        <span class="hljs-string">f&quot;Function: <span class="hljs-subst">{selected_functions.name}</span>\n&quot;</span>
+        <span class="hljs-string">f&quot;Description: <span class="hljs-subst">{selected_functions.description}</span>\n&quot;</span>
+        <span class="hljs-string">f&quot;<span class="hljs-subst">{prompt}</span>&quot;</span>
+        <span class="hljs-string">f&quot;<span class="hljs-subst">{context}</span>&quot;</span>
+        <span class="hljs-string">f&quot;\n<span class="hljs-subst">{ordinal}</span> argument (<span class="hljs-subst">{param_name}</span>) value: &quot;</span>
+    )
+    param_input_ids = model.encode(param_prompt)[<span class="hljs-number">0</span>].tolist()
+    ... tipe göre üret ...
+    context += <span class="hljs-string">f&quot;\n<span class="hljs-subst">{param_name}</span>: <span class="hljs-subst">{parameters[param_name]}</span>&quot;</span></code></pre></figure>
+<p>İkinci parametre için modele giden metin:</p>
+<figure class="code rv" data-lang="text"><div class="code-bar"><span>Metin</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs">Function: fn_add_numbers
+Description: Add two numbers together and return their sum.
+What is the sum of 2 and 3?
+a: 2.0
+second argument (b) value: </code></pre></figure>
+<p><strong>Neden her parametre için yeni bir prompt:</strong> Her parametre farklı bir soru: &quot;a nedir?&quot;, &quot;b nedir?&quot;. Prompt bu soruyu açıkça soruyor.</p>
+<p><strong><code>context</code> neden var:</strong> Önceki parametrelerin değerleri bir sonraki promptun içine ekleniyor (<code>a: 2.0</code>). Böylece model <code>b</code> için tekrar <code>2</code> yazmak yerine, <code>a</code>&#39;nın zaten 2 olduğunu görüp sıradaki sayıya (<code>3</code>) geçiyor.</p>
+<p><strong>Ordinal kelime (<code>first</code>, <code>second</code> …) neden var:</strong> Modele hangi sıradaki argümanı istediğimizi doğal dille söylüyor. 6&#39;dan fazla parametre için <code>7th</code>, <code>8th</code> … kullanılıyor (eskiden <code>IndexError</code> veriyordu).</p>
+<p><strong><code>dict</code> sırası:</strong> Python 3.7+&#39;ta sözlükler ekleme sırasını korur. Parametreler JSON dosyasındaki sırayla işleniyor.</p>
+<p><strong>Tipe göre dallanma:</strong></p>
+<div class="table-wrap rv" tabindex="0" role="region" aria-label="Tablo"><table>
+<thead>
+<tr>
+<th><code>param_spec.type</code></th>
+<th>Üretici</th>
+<th>Dönüşüm</th>
+<th>Çıktı tipi</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>&quot;number&quot;</code></td>
+<td><code>generate_number</code></td>
+<td><code>float(raw)</code></td>
+<td><code>float</code> (<code>2.0</code>)</td>
+</tr>
+<tr>
+<td><code>&quot;integer&quot;</code></td>
+<td><code>generate_number(..., allow_decimal=False)</code></td>
+<td><code>int(raw)</code></td>
+<td><code>int</code> (<code>2</code>)</td>
+</tr>
+<tr>
+<td><code>&quot;string&quot;</code></td>
+<td><code>generate_string</code></td>
+<td><code>raw.strip(&#39;&quot;&#39;)</code></td>
+<td><code>str</code></td>
+</tr>
+<tr>
+<td><code>&quot;boolean&quot;</code></td>
+<td><code>generate_constrained_string([&quot;true&quot;,&quot;false&quot;])</code></td>
+<td><code>raw == &quot;true&quot;</code></td>
+<td><code>bool</code></td>
+</tr>
+<tr>
+<td>diğer</td>
+<td>—</td>
+<td><code>ValueError(&quot;Unsupported type ...&quot;)</code></td>
+<td>prompt başarısız</td>
+</tr>
+</tbody></table>
+</div>
+<p><strong><code>float()</code> ve <code>int()</code> neden hiç hata vermiyor:</strong> Gramer sadece tamamlanmış sayılarda durmaya izin veriyor. <code>int()</code> için ayrıca nokta tamamen yasak. Yani <code>raw_value</code> her zaman <code>&quot;2&quot;</code>, <code>&quot;-0.5&quot;</code> gibi parse edilebilir bir metin.</p>
+<p><strong>JSON&#39;u model mi yazıyor?</strong> <strong>Hayır, ve bu önemli bir tasarım kararı.</strong> JSON&#39;un <strong>iskeleti</strong> (<code>{</code>, <code>&quot;name&quot;:</code>, <code>&quot;parameters&quot;:</code> …) program tarafından sabit olarak kuruluyor (<code>FunctionCallResult</code> + <code>json.dump</code>). Model <strong>sadece serbest kısımları</strong> üretiyor: fonksiyon adını ve argüman değerlerini. Bu sayede:</p>
+<ul>
+<li>İskelet hiçbir zaman bozulamıyor.</li>
+<li>Model gereksiz tokenler (<code>{</code>, <code>&quot;</code>, <code>:</code> gibi) için forward pass harcamıyor; daha hızlı.</li>
+<li>Her değer, şemadaki tipine göre ayrı bir gramerle kısıtlanıyor.</li>
+</ul>
+<p>Değerlendirici &quot;model JSON üretmiyor ki?&quot; derse cevap: <em>&quot;Şema sabit; değişken olan yerler fonksiyon adı ve argüman değerleri. Bunları model üretiyor, constrained decoding ile her biri tipine göre kısıtlanıyor. Yapıyı modele bırakmak, geçerliliği riske atıp ekstra forward pass harcamak olurdu.&quot;</em></p>
+<hr class="gap">
+<h3 id="512-generate_constrained_stringmodel-input_ids-candidates-vocab-id_to_token--srcdecodingpy" class="mdh rv">5.12 <code>generate_constrained_string(model, input_ids, candidates, vocab, id_to_token)</code> — <code>src/decoding.py</code></h3>
+<p><strong>Ne yapar:</strong> Model, sabit bir aday listesinden (fonksiyon adları ya da <code>true</code>/<code>false</code>) <strong>tam olarak birini</strong> üretsin diye token token ilerler.</p>
+<figure class="code rv" data-lang="python"><div class="code-bar"><span>Python</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs">generated_so_far = <span class="hljs-string">&quot;&quot;</span>
+input_ids = input_ids.copy()
+candidates = candidates.copy()
+
+<span class="hljs-keyword">for</span> _ <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(MAX_ITERATIONS):
+    candidates_list = get_valid_tokens_for_candidates(candidates, generated_so_far, vocab)
+    chosen_id, chosen_token = _select_next_token(model, input_ids, candidates_list, id_to_token)
+    generated_so_far += chosen_token
+    input_ids.append(chosen_id)
+    candidates = filter_candidates(candidates, generated_so_far)
+    <span class="hljs-keyword">if</span> <span class="hljs-built_in">len</span>(candidates) == <span class="hljs-number">1</span> <span class="hljs-keyword">and</span> generated_so_far == candidates[<span class="hljs-number">0</span>]:
+        <span class="hljs-keyword">return</span> candidates[<span class="hljs-number">0</span>]
+
+<span class="hljs-keyword">raise</span> RuntimeError(<span class="hljs-string">&quot;Maximum number of iterations reached; ...&quot;</span>)</code></pre></figure>
+<p><strong>Adım adım:</strong></p>
+<ol>
+<li>Şu ana kadar üretilen metni ileriye taşıyabilecek tokenleri bul (en az bir adayın öneki kalmalı).</li>
+<li>Model bunlar arasından en iyisini seçsin.</li>
+<li>Seçilen tokeni hem metne hem <code>input_ids</code>&#39;e ekle (model bir sonraki adımda kendi seçimini görsün).</li>
+<li>Artık mümkün olmayan adayları at.</li>
+<li>Tek aday kaldıysa ve tamamen üretildiyse bitir.</li>
+</ol>
+<p><strong>Neden <code>.copy()</code>:</strong> <code>input_ids</code> ve <code>candidates</code> dışarıdan gelen listeler. Python&#39;da listeler <strong>referansla</strong> geçer; <code>append</code> çağrısı çağıranın listesini de değiştirirdi. Kopyalayınca fonksiyonun yan etkisi olmuyor.</p>
+<p><strong>Neden <code>MAX_ITERATIONS</code>:</strong> Güvenlik sınırı (100). Normalde aday sayısı sınırlı olduğu için döngü kendiliğinden bitiyor. Her token en az 1 karakter eklediği için en fazla &quot;aday uzunluğu&quot; kadar adım sürüyor.</p>
+<p><strong>Neden burada sınıra gelince hata veriyor (string&#39;deki gibi kapatmıyor):</strong> Yarım kalmış bir fonksiyon adı (<code>&quot;fn_add_num</code>) ya da boolean (<code>tru</code>) anlamsız. Sessizce yanlış bir değer döndürmek yerine hata vermek daha doğru.</p>
+<hr class="gap">
+<h3 id="513-get_valid_tokens_for_candidatescandidates-generated_so_far-vocab--srcgrammarpy" class="mdh rv">5.13 <code>get_valid_tokens_for_candidates(candidates, generated_so_far, vocab)</code> — <code>src/grammar.py</code></h3>
+<p><strong>Ne yapar:</strong> Her aday için geçerli tokenleri bulup birleştirir; tekrarları atar.</p>
+<figure class="code rv" data-lang="python"><div class="code-bar"><span>Python</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs">ids_set = <span class="hljs-built_in">set</span>()
+<span class="hljs-keyword">for</span> candidate <span class="hljs-keyword">in</span> candidates:
+    ids_set.update(get_valid_tokens_for_target(candidate, generated_so_far, vocab))
+<span class="hljs-keyword">return</span> <span class="hljs-built_in">list</span>(ids_set)</code></pre></figure>
+<p><strong>Neden <code>set</code>:</strong> Aynı token birden fazla adaya uyabilir. Örneğin başta <code>&quot;</code> tokeni bütün adaylara uyar. <code>set</code> tekrarları otomatik atıyor.</p>
+<hr class="gap">
+<h3 id="514-get_valid_tokens_for_targettarget-generated_so_far-vocab--srcgrammarpy" class="mdh rv">5.14 <code>get_valid_tokens_for_target(target, generated_so_far, vocab)</code> — <code>src/grammar.py</code></h3>
+<p><strong>Ne yapar:</strong> Tek bir hedef metin için geçerli tokenleri bulur.</p>
+<figure class="code rv" data-lang="python"><div class="code-bar"><span>Python</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs"><span class="hljs-keyword">for</span> token_str, token_id <span class="hljs-keyword">in</span> vocab.items():
+    unified = generated_so_far + token_str
+    <span class="hljs-keyword">if</span> target.startswith(unified):
+        id_list.append(token_id)</code></pre></figure>
+<p><strong>Kural:</strong> <code>şu ana kadarki metin + token</code> hâlâ hedefin <strong>başlangıcı</strong> (öneki) ise token geçerli.</p>
+<p><strong>Örnek:</strong> hedef <code>&quot;fn_greet&quot;</code>, şu ana kadar <code>&quot;fn_</code></p>
+<div class="table-wrap rv" tabindex="0" role="region" aria-label="Tablo"><table>
+<thead>
+<tr>
+<th>Token</th>
+<th>Birleşim</th>
+<th>Hedefin öneki mi?</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>gre</code></td>
+<td><code>&quot;fn_gre</code></td>
+<td><span class="mk mk-y" role="img" aria-label="evet" title="evet"></span></td>
+</tr>
+<tr>
+<td><code>greet</code></td>
+<td><code>&quot;fn_greet</code></td>
+<td><span class="mk mk-y" role="img" aria-label="evet" title="evet"></span></td>
+</tr>
+<tr>
+<td><code>greet&quot;</code></td>
+<td><code>&quot;fn_greet&quot;</code></td>
+<td><span class="mk mk-y" role="img" aria-label="evet" title="evet"></span> (tamamı)</td>
+</tr>
+<tr>
+<td><code>add</code></td>
+<td><code>&quot;fn_add</code></td>
+<td><span class="mk mk-n" role="img" aria-label="hayır" title="hayır"></span></td>
+</tr>
+<tr>
+<td><code>Ġgreet</code></td>
+<td><code>&quot;fn_ greet</code></td>
+<td><span class="mk mk-n" role="img" aria-label="hayır" title="hayır"></span> (boşluk)</td>
+</tr>
+</tbody></table>
+</div>
+<p><strong>Neden tek karakter değil, bütün token:</strong> Tokenler çok karakterli. Model <code>greet</code> gibi uzun bir token seçebilir. Karakter karakter kontrol etmek, birden fazla karakter içeren tokenleri kaçırırdı.</p>
+<p><strong>Maliyet:</strong> Her çağrıda bütün vocab (~151 bin) taranıyor. Aday sayısıyla çarpılıyor (5 fonksiyon → 5 tarama).</p>
+<hr class="gap">
+<h3 id="515-_select_next_tokenmodel-input_ids-valid_token_ids-id_to_token--srcdecodingpy" class="mdh rv">5.15 <code>_select_next_token(model, input_ids, valid_token_ids, id_to_token)</code> — <code>src/decoding.py</code></h3>
+<p><strong>Constrained decoding&#39;in tam olarak gerçekleştiği yer.</strong></p>
+<figure class="code rv" data-lang="python"><div class="code-bar"><span>Python</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs"><span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> valid_token_ids:
+    <span class="hljs-keyword">raise</span> ValueError(<span class="hljs-string">&quot;No valid tokens left&quot;</span>)
+
+valid_token_ids_set = <span class="hljs-built_in">set</span>(valid_token_ids)
+raw_logits = model.get_logits_from_input_ids(input_ids)
+masked_raw_logits = raw_logits.copy()
+
+<span class="hljs-keyword">for</span> token_id <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-built_in">len</span>(masked_raw_logits)):
+    <span class="hljs-keyword">if</span> token_id <span class="hljs-keyword">not</span> <span class="hljs-keyword">in</span> valid_token_ids_set:
+        masked_raw_logits[token_id] = <span class="hljs-built_in">float</span>(<span class="hljs-string">&#x27;-inf&#x27;</span>)
+
+max_id = <span class="hljs-built_in">max</span>(masked_raw_logits)
+max_id_index = masked_raw_logits.index(max_id)
+token_str = id_to_token[max_id_index]
+<span class="hljs-keyword">return</span> max_id_index, token_str</code></pre></figure>
+<p><strong>Adım adım:</strong></p>
+<ol>
+<li>Geçerli token yoksa hemen hata ver (yoksa hepsi <code>-inf</code> olur ve <code>max</code> anlamsızlaşır).</li>
+<li>Geçerli id&#39;leri <code>set</code>&#39;e çevir: <code>in</code> kontrolü listede O(n), set&#39;te O(1). 151 bin kontrol için bu fark çok büyük.</li>
+<li>Modelden <strong>ham logitleri</strong> al (bir forward pass).</li>
+<li>Geçersiz her tokenin logitini <code>-inf</code> yap.</li>
+<li>En büyük logiti bul (greedy / argmax) ve indexini al.</li>
+<li>Index = token id. <code>id_to_token</code> ile metnini bul.</li>
+</ol>
+<p><strong>Değişken adı uyarısı:</strong> <code>max_id</code> aslında bir id değil, <strong>en büyük logit değeri</strong>. <code>max_id_index</code> ise token id&#39;si. Sorulursa bu karışıklığı bil.</p>
+<p><strong>Eşitlik durumu:</strong> <code>list.index()</code> ilk eşleşmeyi döndürüyor; iki token aynı logite sahipse küçük id&#39;li kazanıyor. Pratikte float logitlerde tam eşitlik çok nadir.</p>
+<p><strong>Logit listesi vocab&#39;tan uzun:</strong> Modelin çıktı katmanı, <code>vocab.json</code>&#39;daki token sayısından biraz daha fazla eleman döndürüyor (özel tokenler ve dolgu). Bu fazladan id&#39;ler hiçbir zaman geçerli listede olmadığı için her zaman <code>-inf</code> kalıyor ve <strong>asla seçilmiyor</strong>. Bu yüzden <code>id_to_token[max_id_index]</code> hiç <code>KeyError</code> vermiyor.</p>
+<p><strong>Neden alt çizgiyle başlıyor (<code>_select_...</code>):</strong> Python&#39;da &quot;modül içi yardımcı&quot; anlamına gelen bir konvansiyon. Subject&#39;teki yasak <strong><code>llm_sdk</code>&#39;nın</strong> private üyeleri için; kendi modülümüzdeki private fonksiyon serbest.</p>
+<hr class="gap">
+<h3 id="516-filter_candidatescandidates-generated_so_far--srcgrammarpy" class="mdh rv">5.16 <code>filter_candidates(candidates, generated_so_far)</code> — <code>src/grammar.py</code></h3>
+<p><strong>Ne yapar:</strong> Hâlâ üretilen metinle başlayan adayları tutar, diğerlerini atar.</p>
+<figure class="code rv" data-lang="python"><div class="code-bar"><span>Python</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs"><span class="hljs-keyword">return</span> [c <span class="hljs-keyword">for</span> c <span class="hljs-keyword">in</span> candidates <span class="hljs-keyword">if</span> c.startswith(generated_so_far)]   <span class="hljs-comment"># (gerçek kod döngüyle)</span></code></pre></figure>
+<p><strong>Örnek:</strong> Adaylar <code>[&#39;&quot;fn_add_numbers&quot;&#39;, &#39;&quot;fn_greet&quot;&#39;, &#39;&quot;fn_get_square_root&quot;&#39;]</code>, üretilen <code>&quot;fn_g</code>:
+→ <code>[&#39;&quot;fn_greet&quot;&#39;, &#39;&quot;fn_get_square_root&quot;&#39;]</code></p>
+<p><strong>Neden gerekli:</strong> Bir sonraki adımda <code>get_valid_tokens_for_candidates</code> sadece kalan adaylara bakar; hem daha hızlı (daha az tarama) hem bitiş koşulu (<code>len(candidates) == 1</code>) bunun sayesinde çalışıyor.</p>
+<hr class="gap">
+<h3 id="517-generate_numbermodel-input_ids-vocab-id_to_token-allow_decimaltrue--srcdecodingpy" class="mdh rv">5.17 <code>generate_number(model, input_ids, vocab, id_to_token, allow_decimal=True)</code> — <code>src/decoding.py</code></h3>
+<p><strong>Ne yapar:</strong> Bir sayıyı token token üretir. Sayının <strong>nerede biteceğine model karar verir</strong>.</p>
+<figure class="code rv" data-lang="python"><div class="code-bar"><span>Python</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs">generated_so_far = <span class="hljs-string">&quot;&quot;</span>
+input_ids = input_ids.copy()
+<span class="hljs-keyword">for</span> _ <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(MAX_ITERATIONS):
+    valid_ids = get_valid_tokens_for_number(generated_so_far, vocab, allow_decimal)
+    chosen_id, chosen_token = _select_next_token(model, input_ids, valid_ids, id_to_token)
+    <span class="hljs-keyword">if</span> chosen_token == NUMBER_STOP_TOKEN:
+        <span class="hljs-keyword">return</span> generated_so_far
+    generated_so_far += chosen_token
+    input_ids.append(chosen_id)
+<span class="hljs-keyword">raise</span> RuntimeError(...)</code></pre></figure>
+<p><strong>Bitiş mekanizması:</strong> <code>Ċ</code> (satır sonu) tokeni &quot;durdur&quot; anlamına geliyor. Bu token <strong>sadece sayı tamamlanmışsa</strong> geçerli listeye ekleniyor. Model <code>&quot;2&quot;</code> yazdıktan sonra iki seçeneğe sahip: bir rakam daha eklemek (<code>&quot;23&quot;</code>) ya da <code>Ċ</code> seçip durmak. Model genelde durmayı seçiyor, çünkü promptta sayı 2.</p>
+<p><strong>Neden <code>Ċ</code> (satır sonu):</strong> Doğal bir seçim: prompt <code>... value: </code> ile bitiyor; model değeri yazdıktan sonra satır sonuna geçmeye meyilli. Ayrıca <code>Ċ</code> hiçbir sayının parçası olamaz, karışıklık çıkmaz.</p>
+<p><strong>Stop tokeni neden <code>generated_so_far</code>&#39;a eklenmiyor:</strong> O bir işaret, sayının parçası değil.</p>
+<p><strong><code>allow_decimal</code>:</strong> <code>integer</code> tipi için <code>False</code> geçiliyor; nokta hiç önerilmiyor. Varsayılan <code>True</code>, böylece <code>number</code> için olan eski çağrılar hiç değişmeden çalışıyor.</p>
+<p><strong>Dönüş tipi <code>str</code>:</strong> Dönüşümü (<code>float</code>/<code>int</code>) çağıran yapıyor; bu fonksiyon iki tip için de kullanılıyor.</p>
+<hr class="gap">
+<h3 id="518-get_valid_tokens_for_numbergenerated_so_far-vocab-allow_decimaltrue--srcgrammarpy" class="mdh rv">5.18 <code>get_valid_tokens_for_number(generated_so_far, vocab, allow_decimal=True)</code> — <code>src/grammar.py</code></h3>
+<figure class="code rv" data-lang="python"><div class="code-bar"><span>Python</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs">id_list = []
+<span class="hljs-keyword">if</span> is_complete_number(generated_so_far):
+    stop_id = vocab.get(NUMBER_STOP_TOKEN)
+    <span class="hljs-keyword">if</span> stop_id <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span>:
+        id_list.append(stop_id)
+<span class="hljs-keyword">for</span> token_str, token_id <span class="hljs-keyword">in</span> vocab.items():
+    <span class="hljs-keyword">if</span> is_valid_number_fragment(generated_so_far + token_str, allow_decimal):
+        id_list.append(token_id)
+<span class="hljs-keyword">return</span> id_list</code></pre></figure>
+<p><strong>İki iş yapıyor:</strong></p>
+<ol>
+<li>Sayı <strong>tamamlanmışsa</strong> stop tokenini ekliyor → model durabilir.</li>
+<li>Sayıyı <strong>geçerli tutan</strong> her tokeni ekliyor → model devam edebilir.</li>
+</ol>
+<p><strong><code>vocab.get(...)</code> neden <code>[...]</code> değil:</strong> Başka bir model kullanılırsa vocab&#39;ta <code>Ċ</code> olmayabilir. <code>get</code>, <code>KeyError</code> yerine <code>None</code> döndürüyor.</p>
+<p><strong>Örnek akış (Qwen&#39;de rakamlar tek token):</strong></p>
+<div class="table-wrap rv" tabindex="0" role="region" aria-label="Tablo"><table>
+<thead>
+<tr>
+<th><code>generated_so_far</code></th>
+<th>Tamam mı?</th>
+<th>Geçerli tokenler</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>&quot;&quot;</code></td>
+<td><span class="mk mk-n" role="img" aria-label="hayır" title="hayır"></span></td>
+<td><code>0-9</code>, <code>-</code></td>
+</tr>
+<tr>
+<td><code>&quot;2&quot;</code></td>
+<td><span class="mk mk-y" role="img" aria-label="evet" title="evet"></span></td>
+<td><code>Ċ</code>, <code>0-9</code>, <code>.</code></td>
+</tr>
+<tr>
+<td><code>&quot;2.&quot;</code></td>
+<td><span class="mk mk-n" role="img" aria-label="hayır" title="hayır"></span></td>
+<td><code>0-9</code></td>
+</tr>
+<tr>
+<td><code>&quot;2.5&quot;</code></td>
+<td><span class="mk mk-y" role="img" aria-label="evet" title="evet"></span></td>
+<td><code>Ċ</code>, <code>0-9</code></td>
+</tr>
+<tr>
+<td><code>&quot;-&quot;</code></td>
+<td><span class="mk mk-n" role="img" aria-label="hayır" title="hayır"></span></td>
+<td><code>0-9</code></td>
+</tr>
+</tbody></table>
+</div>
+<hr class="gap">
+<h3 id="519-is_valid_number_fragmentfragment-allow_decimaltrue--srcgrammarpy" class="mdh rv">5.19 <code>is_valid_number_fragment(fragment, allow_decimal=True)</code> — <code>src/grammar.py</code></h3>
+<p><strong>Soru:</strong> &quot;Bu metin <strong>hâlâ</strong> bir sayıya dönüşebilir mi?&quot;</p>
+<figure class="code rv" data-lang="python"><div class="code-bar"><span>Python</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs"><span class="hljs-keyword">if</span> fragment == <span class="hljs-string">&quot;&quot;</span>:
+    <span class="hljs-keyword">return</span> <span class="hljs-literal">True</span>
+allowed = <span class="hljs-string">&quot;0123456789-&quot;</span>
+<span class="hljs-keyword">if</span> allow_decimal:
+    allowed += <span class="hljs-string">&quot;.&quot;</span>
+<span class="hljs-keyword">for</span> index, part <span class="hljs-keyword">in</span> <span class="hljs-built_in">enumerate</span>(fragment):
+    <span class="hljs-keyword">if</span> part <span class="hljs-keyword">not</span> <span class="hljs-keyword">in</span> allowed:            <span class="hljs-keyword">return</span> <span class="hljs-literal">False</span>   <span class="hljs-comment"># izin verilmeyen karakter</span>
+    <span class="hljs-keyword">if</span> part == <span class="hljs-string">&quot;-&quot;</span> <span class="hljs-keyword">and</span> index != <span class="hljs-number">0</span>:     <span class="hljs-keyword">return</span> <span class="hljs-literal">False</span>   <span class="hljs-comment"># eksi sadece başta</span>
+    <span class="hljs-keyword">if</span> part == <span class="hljs-string">&quot;.&quot;</span> <span class="hljs-keyword">and</span> (index == <span class="hljs-number">0</span> <span class="hljs-keyword">or</span> <span class="hljs-keyword">not</span> fragment[index - <span class="hljs-number">1</span>].isdigit()):
+                                       <span class="hljs-keyword">return</span> <span class="hljs-literal">False</span>   <span class="hljs-comment"># nokta sadece rakamdan sonra</span>
+<span class="hljs-keyword">if</span> fragment.count(<span class="hljs-string">&quot;.&quot;</span>) &gt; <span class="hljs-number">1</span>:            <span class="hljs-keyword">return</span> <span class="hljs-literal">False</span>   <span class="hljs-comment"># en fazla bir nokta</span>
+<span class="hljs-keyword">return</span> <span class="hljs-literal">True</span></code></pre></figure>
+<p><strong>Kurallar:</strong></p>
+<ul>
+<li>Sadece rakamlar, <code>-</code> ve (izin varsa) <code>.</code>.</li>
+<li><code>-</code> sadece ilk karakter olabilir.</li>
+<li><code>.</code> sadece bir <strong>rakamdan sonra</strong> gelebilir (<code>.5</code>, <code>-.</code> yasak).</li>
+<li>En fazla bir nokta.</li>
+</ul>
+<p><strong><code>index == 0</code> kontrolü neden şart:</strong> Python&#39;da <code>fragment[-1]</code> <strong>son</strong> karakteri verir. <code>index == 0</code> iken <code>fragment[index - 1]</code> hata vermez ama yanlış karakteri okur. <code>or</code> kısa devre yaptığı için <code>index == 0</code> ise ikinci kısım hiç çalışmaz.</p>
+<p><strong><code>.5</code> kuralının hikâyesi (savunmada anlat):</strong> İlk versiyonda nokta başta olabiliyordu. <code>&quot;.5&quot;</code> &quot;geçerli&quot; sayılıyordu ama <code>is_complete_number(&quot;.5&quot;)</code> hiçbir zaman <code>True</code> dönmüyordu (noktadan önce rakam yok). Sonuç: stop tokeni hiç sunulmuyordu, model 100 rakam boyunca devam ediyor ve hata alıyordu. Ders: <strong>gramerin kabul ettiği her parça tamamlanabilir olmalı.</strong></p>
+<p><strong>Neden bilimsel gösterim (<code>1e5</code>) yok:</strong> Promptlar normal sayılar içeriyor; <code>e</code> eklemek grameri karmaşıklaştırırdı. Ama sınırlama olarak bil.</p>
+<hr class="gap">
+<h3 id="520-is_complete_numberfragment--srcgrammarpy" class="mdh rv">5.20 <code>is_complete_number(fragment)</code> — <code>src/grammar.py</code></h3>
+<p><strong>Soru:</strong> &quot;Bu metin <strong>burada</strong> biterse geçerli bir sayı olur mu?&quot;</p>
+<figure class="code rv" data-lang="python"><div class="code-bar"><span>Python</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs"><span class="hljs-keyword">if</span> fragment.startswith(<span class="hljs-string">&quot;-&quot;</span>):
+    fragment = fragment[<span class="hljs-number">1</span>:]
+<span class="hljs-keyword">if</span> <span class="hljs-string">&quot;.&quot;</span> <span class="hljs-keyword">not</span> <span class="hljs-keyword">in</span> fragment:
+    <span class="hljs-keyword">return</span> fragment.isdigit()
+<span class="hljs-keyword">if</span> fragment.count(<span class="hljs-string">&quot;.&quot;</span>) &gt; <span class="hljs-number">1</span>:
+    <span class="hljs-keyword">return</span> <span class="hljs-literal">False</span>
+first, second = fragment.split(<span class="hljs-string">&quot;.&quot;</span>)
+<span class="hljs-keyword">return</span> first.isdigit() <span class="hljs-keyword">and</span> second.isdigit()</code></pre></figure>
+<div class="table-wrap rv" tabindex="0" role="region" aria-label="Tablo"><table>
+<thead>
+<tr>
+<th>Girdi</th>
+<th>Sonuç</th>
+<th>Neden</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>&quot;345&quot;</code></td>
+<td><span class="mk mk-y" role="img" aria-label="evet" title="evet"></span></td>
+<td>rakamlardan oluşuyor</td>
+</tr>
+<tr>
+<td><code>&quot;-5&quot;</code></td>
+<td><span class="mk mk-y" role="img" aria-label="evet" title="evet"></span></td>
+<td>eksi atılınca <code>&quot;5&quot;</code></td>
+</tr>
+<tr>
+<td><code>&quot;3.14&quot;</code></td>
+<td><span class="mk mk-y" role="img" aria-label="evet" title="evet"></span></td>
+<td>iki taraf da rakam</td>
+</tr>
+<tr>
+<td><code>&quot;&quot;</code></td>
+<td><span class="mk mk-n" role="img" aria-label="hayır" title="hayır"></span></td>
+<td><code>&quot;&quot;.isdigit()</code> → False</td>
+</tr>
+<tr>
+<td><code>&quot;-&quot;</code></td>
+<td><span class="mk mk-n" role="img" aria-label="hayır" title="hayır"></span></td>
+<td>eksi atılınca boş</td>
+</tr>
+<tr>
+<td><code>&quot;12.&quot;</code></td>
+<td><span class="mk mk-n" role="img" aria-label="hayır" title="hayır"></span></td>
+<td><code>second = &quot;&quot;</code></td>
+</tr>
+<tr>
+<td><code>&quot;.5&quot;</code></td>
+<td><span class="mk mk-n" role="img" aria-label="hayır" title="hayır"></span></td>
+<td><code>first = &quot;&quot;</code></td>
+</tr>
+</tbody></table>
+</div>
+<p><strong>Neden önemli:</strong> <code>&quot;&quot;</code> için <code>False</code> döndüğü için model <strong>en az bir rakam</strong> yazmadan duramıyor; boş sayı üretilemiyor.</p>
+<figure class="w rv" data-w="num" data-ui>
+<p class="w-title">Sayı grameri oyun alanı</p>
+<label class="field"><span>generated_so_far</span><input type="text" class="num-in" value="2." spellcheck="false" autocomplete="off" inputmode="decimal"></label>
+<div class="chips num-pre" aria-label="Hazır örnekler"></div>
+<label class="sw"><input type="checkbox" class="num-dec" checked> allow_decimal</label>
+<dl class="verdicts">
+  <div><dt><code>is_valid_number_fragment</code></dt><dd class="v-valid"></dd></div>
+  <div><dt><code>is_complete_number</code></dt><dd class="v-complete"></dd></div>
+</dl>
+<p class="w-sub">Örnek bir vocab'tan <code>get_valid_tokens_for_number</code> sonucu</p>
+<div class="chips num-next" aria-live="polite"></div>
+<figcaption>Fonksiyonlar 5.19 ve 5.20'deki kodun birebir JavaScript karşılığı. Yeşil: geçerli token. Ċ yalnızca sayı tamamken çıkar.</figcaption>
+</figure><hr class="gap">
+<h3 id="521-generate_stringmodel-input_ids-vocab-id_to_token--srcdecodingpy" class="mdh rv">5.21 <code>generate_string(model, input_ids, vocab, id_to_token)</code> — <code>src/decoding.py</code></h3>
+<p><strong>Ne yapar:</strong> Tırnak içinde bir metin üretir.</p>
+<figure class="code rv" data-lang="python"><div class="code-bar"><span>Python</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs">input_ids = input_ids.copy()
+opening_id = vocab[<span class="hljs-string">&#x27;&quot;&#x27;</span>]
+opening_str = id_to_token[opening_id]
+generated_so_far = opening_str
+input_ids.append(opening_id)
+<span class="hljs-keyword">for</span> _ <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(MAX_ITERATIONS):
+    valid_ids = get_valid_tokens_for_string(generated_so_far[<span class="hljs-number">1</span>:], vocab)
+    chosen_id, chosen_token = _select_next_token(model, input_ids, valid_ids, id_to_token)
+    generated_so_far += chosen_token
+    input_ids.append(chosen_id)
+    <span class="hljs-keyword">if</span> is_complete_string(generated_so_far[<span class="hljs-number">1</span>:]):
+        <span class="hljs-keyword">return</span> decode_bpe_string(generated_so_far, BYTE_DECODER)
+<span class="hljs-keyword">return</span> decode_bpe_string(generated_so_far + <span class="hljs-string">&#x27;&quot;&#x27;</span>, BYTE_DECODER)</code></pre></figure>
+<p><strong>Açılış tırnağını neden biz koyuyoruz:</strong> <code>&quot;</code> karakteri bir string&#39;de <strong>iki zıt anlam</strong> taşıyor: başta &quot;açılış&quot;, sonda &quot;kapanış&quot;. Açılışı modele bırakırsak ilk <code>&quot;</code>&#39;nun hangisi olduğunu ayırt etmek zorlaşır. Çözüm: açılışı <strong>biz</strong> koyuyoruz (hem metne hem <code>input_ids</code>&#39;e, böylece model tırnağın açıldığını &quot;görüyor&quot;). Ardından modelin ürettiği <strong>ilk</strong> <code>&quot;</code> her zaman kapanış.</p>
+<p><strong><code>generated_so_far[1:]</code> neden:</strong> Kontrol fonksiyonlarına açılış tırnağı <strong>olmadan</strong> içerik gönderiliyor. Aksi halde açılış tırnağı &quot;ortada bir tırnak&quot; sayılır ve her şey reddedilirdi.</p>
+<p><strong>100 tokende kapanmazsa:</strong> Hata vermek yerine <strong>string&#39;i biz kapatıyoruz</strong>. Yarım bir string de geçerli bir string; çıktı şemaya uygun kalıyor. (Sayı ve aday için bunu yapmıyoruz, çünkü yarım bir sayı ya da fonksiyon adı anlamsız.)</p>
+<p><strong>Sonuç:</strong> <code>decode_bpe_string</code> BPE karakterlerini gerçek metne çeviriyor (<code>Ġ</code> → boşluk). Dönen değer tırnaklı (<code>&quot;hello&quot;</code>). Tırnakları çağıran <code>strip(&#39;&quot;&#39;)</code> ile atıyor.</p>
+<p><strong>Sınırlama:</strong> String&#39;in <strong>içinde</strong> <code>&quot;</code> karakteri olamaz; ilk tırnak her zaman kapanış sayılıyor. (JSON&#39;daki <code>\&quot;</code> kaçış dizisi desteklenmiyor.)</p>
+<hr class="gap">
+<h3 id="522-get_valid_tokens_for_stringgenerated_so_far-vocab--srcgrammarpy" class="mdh rv">5.22 <code>get_valid_tokens_for_string(generated_so_far, vocab)</code> — <code>src/grammar.py</code></h3>
+<p>Bütün vocab&#39;ı tarayıp <code>is_valid_string_fragment(generated_so_far + token)</code> olan tokenleri döndürüyor. Yapı <code>get_valid_tokens_for_number</code> ile aynı, sadece kural farklı.</p>
+<hr class="gap">
+<h3 id="523-is_valid_string_fragmentfragment--srcgrammarpy" class="mdh rv">5.23 <code>is_valid_string_fragment(fragment)</code> — <code>src/grammar.py</code></h3>
+<figure class="code rv" data-lang="python"><div class="code-bar"><span>Python</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs"><span class="hljs-keyword">for</span> index, control <span class="hljs-keyword">in</span> <span class="hljs-built_in">enumerate</span>(fragment):
+    <span class="hljs-keyword">if</span> control == <span class="hljs-string">&#x27;&quot;&#x27;</span>:
+        <span class="hljs-keyword">return</span> index == <span class="hljs-built_in">len</span>(fragment) - <span class="hljs-number">1</span>
+<span class="hljs-keyword">return</span> <span class="hljs-literal">True</span></code></pre></figure>
+<p><strong>Kural:</strong> Tırnak varsa <strong>sadece en sonda</strong> olabilir.</p>
+<div class="table-wrap rv" tabindex="0" role="region" aria-label="Tablo"><table>
+<thead>
+<tr>
+<th>Birleşim</th>
+<th>Sonuç</th>
+<th>Neden</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>hello</code></td>
+<td><span class="mk mk-y" role="img" aria-label="evet" title="evet"></span></td>
+<td>tırnak yok</td>
+</tr>
+<tr>
+<td><code>hello&quot;</code></td>
+<td><span class="mk mk-y" role="img" aria-label="evet" title="evet"></span></td>
+<td>tırnak sonda → kapanış</td>
+</tr>
+<tr>
+<td><code>hel&quot;lo</code></td>
+<td><span class="mk mk-n" role="img" aria-label="hayır" title="hayır"></span></td>
+<td>tırnak ortada</td>
+</tr>
+<tr>
+<td><code>hello&quot;,</code></td>
+<td><span class="mk mk-n" role="img" aria-label="hayır" title="hayır"></span></td>
+<td>tırnaktan sonra virgül var</td>
+</tr>
+</tbody></table>
+</div>
+<p>Bu sayede <code>&quot;,</code> gibi tırnak + başka karakter içeren tokenler otomatik reddediliyor; sadece temiz bir kapanış mümkün.</p>
+<hr class="gap">
+<h3 id="524-is_complete_stringfragment--srcgrammarpy" class="mdh rv">5.24 <code>is_complete_string(fragment)</code> — <code>src/grammar.py</code></h3>
+<figure class="code rv" data-lang="python"><div class="code-bar"><span>Python</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs"><span class="hljs-keyword">if</span> <span class="hljs-built_in">len</span>(fragment) == <span class="hljs-number">0</span>:
+    <span class="hljs-keyword">return</span> <span class="hljs-literal">False</span>
+<span class="hljs-keyword">return</span> fragment[-<span class="hljs-number">1</span>] == <span class="hljs-string">&#x27;&quot;&#x27;</span></code></pre></figure>
+<p>Son karakter tırnaksa string bitmiş demek. Boş kontrolü, <code>fragment[-1]</code>&#39;in <code>IndexError</code> vermemesi için.</p>
+<figure class="w rv" data-w="str" data-ui>
+<p class="w-title">String grameri oyun alanı</p>
+<label class="field"><span>Açılış tırnağından sonraki içerik</span><input type="text" class="str-in" value="hello" spellcheck="false" autocomplete="off"></label>
+<div class="chips str-pre" aria-label="Hazır örnekler"></div>
+<dl class="verdicts">
+  <div><dt><code>is_valid_string_fragment</code></dt><dd class="v-valid"></dd></div>
+  <div><dt><code>is_complete_string</code></dt><dd class="v-complete"></dd></div>
+</dl>
+<p class="w-sub">Örnek tokenler eklenince</p>
+<div class="chips str-next" aria-live="polite"></div>
+<figcaption>Tırnak yalnızca en sonda olabilir; ilk tırnak her zaman kapanış.</figcaption>
+</figure><hr class="gap">
+<h3 id="525-build_byte_decoder-ve-byte_decoder--srcgrammarpy" class="mdh rv">5.25 <code>build_byte_decoder()</code> ve <code>BYTE_DECODER</code> — <code>src/grammar.py</code></h3>
+<p><strong>Ne yapar:</strong> BPE&#39;nin &quot;görünür karakter → bayt&quot; eşleme tablosunu kurar (GPT-2&#39;nin <code>bytes_to_unicode</code> tablosunun tersi).</p>
+<figure class="code rv" data-lang="python"><div class="code-bar"><span>Python</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs">byte_values = <span class="hljs-built_in">list</span>(<span class="hljs-built_in">range</span>(<span class="hljs-built_in">ord</span>(<span class="hljs-string">&quot;!&quot;</span>), <span class="hljs-built_in">ord</span>(<span class="hljs-string">&quot;~&quot;</span>) + <span class="hljs-number">1</span>)) \
+            + <span class="hljs-built_in">list</span>(<span class="hljs-built_in">range</span>(<span class="hljs-built_in">ord</span>(<span class="hljs-string">&quot;¡&quot;</span>), <span class="hljs-built_in">ord</span>(<span class="hljs-string">&quot;¬&quot;</span>) + <span class="hljs-number">1</span>)) \
+            + <span class="hljs-built_in">list</span>(<span class="hljs-built_in">range</span>(<span class="hljs-built_in">ord</span>(<span class="hljs-string">&quot;®&quot;</span>), <span class="hljs-built_in">ord</span>(<span class="hljs-string">&quot;ÿ&quot;</span>) + <span class="hljs-number">1</span>))
+char_codes = byte_values[:]
+offset = <span class="hljs-number">0</span>
+<span class="hljs-keyword">for</span> byte <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">256</span>):
+    <span class="hljs-keyword">if</span> byte <span class="hljs-keyword">not</span> <span class="hljs-keyword">in</span> byte_values:
+        byte_values.append(byte)
+        char_codes.append(<span class="hljs-number">256</span> + offset)
+        offset += <span class="hljs-number">1</span>
+<span class="hljs-keyword">return</span> {<span class="hljs-built_in">chr</span>(code): byte <span class="hljs-keyword">for</span> code, byte <span class="hljs-keyword">in</span> <span class="hljs-built_in">zip</span>(char_codes, byte_values)}</code></pre></figure>
+<p><strong>Mantık:</strong></p>
+<ul>
+<li><p>256 baytın <strong>yazdırılabilir</strong> olanları (<code>!</code>–<code>~</code>, <code>¡</code>–<code>¬</code>, <code>®</code>–<code>ÿ</code>) kendi karakterleriyle eşleniyor: <code>A</code> → 65.</p>
+</li>
+<li><p>Geri kalan <strong>68 bayt</strong> (boşluk, satır sonu, kontrol karakterleri …) sırayla 256, 257, 258 … kod noktalarına eşleniyor.</p>
+<ul>
+<li>Bayt 10 (<code>\n</code>) → 256 + 10 = 266 → <code>Ċ</code></li>
+<li>Bayt 32 (boşluk) → 256 + 32 = 288 → <code>Ġ</code></li>
+</ul>
+<p>(0–32 arasındaki baytların hepsi &quot;yazdırılamaz&quot; listesinde olduğu için offset bunlarda bayt değerine eşit.)</p>
+</li>
+</ul>
+<p><strong><code>BYTE_DECODER = build_byte_decoder()</code>:</strong> Modül yüklenirken <strong>bir kez</strong> hesaplanıyor, her string&#39;de tekrar hesaplanmıyor.</p>
+<figure class="w rv" data-w="grid" data-ui>
+<p class="w-title">256 bayt, tek tablo</p>
+<div class="bgrid" role="grid" aria-label="Bayt tablosu"></div>
+<p class="bgrid-say" aria-live="polite">Bir hücreye dokun.</p>
+<figcaption>Gri hücreler kendi karakterleriyle eşlenen 188 yazdırılabilir bayt; mavi hücreler 256 + offset'e taşınan 68 bayt.</figcaption>
+</figure><hr class="gap">
+<h3 id="526-decode_bpe_stringraw-byte_decoder--srcgrammarpy" class="mdh rv">5.26 <code>decode_bpe_string(raw, byte_decoder)</code> — <code>src/grammar.py</code></h3>
+<figure class="code rv" data-lang="python"><div class="code-bar"><span>Python</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs">buffer = <span class="hljs-built_in">bytearray</span>()
+<span class="hljs-keyword">for</span> char <span class="hljs-keyword">in</span> raw:
+    <span class="hljs-keyword">if</span> char <span class="hljs-keyword">in</span> byte_decoder:
+        buffer.append(byte_decoder[char])
+    <span class="hljs-keyword">else</span>:
+        buffer.extend(char.encode(<span class="hljs-string">&quot;utf-8&quot;</span>))
+<span class="hljs-keyword">return</span> buffer.decode(<span class="hljs-string">&quot;utf-8&quot;</span>, errors=<span class="hljs-string">&quot;replace&quot;</span>)</code></pre></figure>
+<p><strong>Ne yapar:</strong> Ham BPE metnini gerçek metne çevirir.</p>
+<ul>
+<li><code>&quot;Ġhello&quot;</code> → baytlar <code>[32, 104, 101, 108, 108, 111]</code> → <code>&quot; hello&quot;</code></li>
+<li>Türkçe <code>ö</code> gibi çok baytlı karakterler vocab&#39;ta iki karakter olarak görünür (örneğin <code>Ã¶</code>). Bunlar iki bayta çevrilip UTF-8 olarak birleşince <code>ö</code> oluyor.</li>
+</ul>
+<p><strong>Neden önce bayta çevirip sonra decode:</strong> Çok baytlı bir karakter <strong>iki ayrı tokene bölünmüş</strong> olabilir. Karakter karakter çevirmek yerine bütün baytları biriktirip en sonda tek seferde decode etmek bu durumu doğru çözüyor.</p>
+<p><strong><code>errors=&quot;replace&quot;</code>:</strong> Bayt dizisi geçersiz UTF-8 ise (örneğin 100 token sınırında yarım kalmış bir karakter) çökmek yerine <code>�</code> koyuyor.</p>
+<p><strong><code>else</code> dalı:</strong> Tablo dışında bir karakter gelirse (normalde olmaz) kendi UTF-8 baytları kullanılıyor; savunmacı programlama.</p>
+<p><strong>Bu bir &quot;kendi decode&#39;umuz&quot;:</strong> <code>model.decode()</code> kullanmıyoruz. Bonus maddelerindeki &quot;tokenizer&#39;ı yeniden yazma&quot; yolunda kısmi bir adım; ama <code>encode</code> hâlâ kullanıldığı için bonus tam karşılanmıyor.</p>
+<hr class="gap">
+<h3 id="527-write_resultspath-results--src__main__py" class="mdh rv">5.27 <code>write_results(path, results)</code> — <code>src/__main__.py</code></h3>
+<figure class="code rv" data-lang="python"><div class="code-bar"><span>Python</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs">data = [result.model_dump() <span class="hljs-keyword">for</span> result <span class="hljs-keyword">in</span> results]
+<span class="hljs-keyword">try</span>:
+    directory = os.path.dirname(path)
+    <span class="hljs-keyword">if</span> directory:
+        os.makedirs(directory, exist_ok=<span class="hljs-literal">True</span>)
+    <span class="hljs-keyword">with</span> <span class="hljs-built_in">open</span>(path, <span class="hljs-string">&quot;w&quot;</span>, encoding=<span class="hljs-string">&quot;utf-8&quot;</span>) <span class="hljs-keyword">as</span> f:
+        json.dump(data, f, indent=<span class="hljs-number">2</span>, ensure_ascii=<span class="hljs-literal">False</span>)
+<span class="hljs-keyword">except</span> OSError <span class="hljs-keyword">as</span> e:
+    <span class="hljs-keyword">raise</span> RuntimeError(<span class="hljs-string">f&quot;Error writing results to <span class="hljs-subst">{path}</span>: <span class="hljs-subst">{e}</span>&quot;</span>) <span class="hljs-keyword">from</span> e</code></pre></figure>
+<ul>
+<li><strong><code>model_dump()</code></strong>: Pydantic nesnesini düz Python sözlüğüne çeviriyor.</li>
+<li><strong><code>os.path.dirname(path)</code></strong>: <code>&quot;data/output/function_calls.json&quot;</code> → <code>&quot;data/output&quot;</code>. <code>&quot;out.json&quot;</code> gibi bir yol için boş string döner; bu yüzden <code>if directory:</code> kontrolü var (<code>os.makedirs(&quot;&quot;)</code> hata verir).</li>
+<li><strong><code>exist_ok=True</code></strong>: Klasör zaten varsa hata vermiyor.</li>
+<li><strong><code>makedirs</code> neden <code>try</code> içinde</strong>: İzin yoksa (<code>PermissionError</code>) ya da yolda dizin yerine dosya varsa (<code>NotADirectoryError</code>) hata yakalanıyor. Hepsi <code>OSError</code>&#39;ın alt sınıfı.</li>
+<li><strong><code>indent=2</code></strong>: Okunabilir çıktı.</li>
+<li><strong><code>ensure_ascii=False</code></strong>: <code>ö</code>, <code>ç</code> gibi karakterler <code>ö</code> olarak değil, olduğu gibi yazılıyor. İki durumda da geçerli JSON.</li>
+<li><strong>JSON geçerliliği</strong>: <code>json.dump</code> Python nesnelerinden her zaman geçerli JSON üretiyor (sondaki virgül, yorum vs. olmaz). Değerler zaten doğru tipte olduğu için şema uyumu da garanti.</li>
+</ul>
+<hr class="gap">
+<nav class="pager" aria-label="Bölümler arası gezinme"><a class="pg pg-prev" href="#4-programın-baştan-sona-akışı"><span>Önceki</span>4. Programın baştan sona akışı</a><a class="pg pg-next" href="#6-uçtan-uca-örnek-what-is-the-sum-of-2-and-3"><span>Sonraki</span>6. Uçtan uca örnek: &quot;What is the sum of 2 and 3?&quot;</a></nav>
+</section>
+<section class="chapter" data-chapter="6-uçtan-uca-örnek-what-is-the-sum-of-2-and-3" aria-labelledby="6-uçtan-uca-örnek-what-is-the-sum-of-2-and-3">
+<h2 id="6-uçtan-uca-örnek-what-is-the-sum-of-2-and-3" class="mdh rv">6. Uçtan uca örnek: &quot;What is the sum of 2 and 3?&quot;</h2>
+<blockquote>
+<p>Token bölmeleri <strong>temsili</strong>; gerçek id&#39;ler ve bölmeler farklı olabilir. Mantık aynı.</p>
+</blockquote>
+<p><strong>1. Dosyalar okunur:</strong> 5 fonksiyon, 11 prompt. Model yüklenir, vocab okunur, ters sözlük kurulur.</p>
+<p><strong>2. Aşama 1 — fonksiyon adı</strong></p>
+<p>Adaylar:</p>
+<figure class="code rv" data-lang="text"><div class="code-bar"><span>Metin</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs">'&quot;fn_add_numbers&quot;'  '&quot;fn_greet&quot;'  '&quot;fn_reverse_string&quot;'
+'&quot;fn_get_square_root&quot;'  '&quot;fn_substitute_string_with_regex&quot;'</code></pre></figure>
+<div class="table-wrap rv" tabindex="0" role="region" aria-label="Tablo"><table>
+<thead>
+<tr>
+<th>Adım</th>
+<th>Şu ana kadar</th>
+<th>Geçerli tokenlerden bazıları</th>
+<th>Modelin seçimi</th>
+<th>Kalan adaylar</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>``</td>
+<td><code>&quot;</code>, <code>&quot;fn</code></td>
+<td><code>&quot;</code></td>
+<td>5</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>&quot;</code></td>
+<td><code>fn</code>, <code>f</code>, <code>fn_</code></td>
+<td><code>fn</code></td>
+<td>5</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>&quot;fn</code></td>
+<td><code>_</code>, <code>_add</code>, <code>_g</code> …</td>
+<td><code>_add</code></td>
+<td>1 (<code>&quot;fn_add_numbers&quot;</code>)</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>&quot;fn_add</code></td>
+<td><code>_numbers</code>, <code>_</code>, …</td>
+<td><code>_numbers</code></td>
+<td>1</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>&quot;fn_add_numbers</code></td>
+<td><code>&quot;</code></td>
+<td><code>&quot;</code></td>
+<td>1 → <strong>bitti</strong></td>
+</tr>
+</tbody></table>
+</div>
+<p>Model 3. adımda <code>_add</code> tokenini seçti. Bunun sebebi promptta &quot;sum&quot; geçmesi ve <code>fn_add_numbers</code> açıklamasının &quot;Add two numbers&quot; olması. Bunu <strong>model kendi logitleriyle</strong> yaptı; kodda &quot;sum&quot; kelimesine bakan bir kural yok.</p>
+<p>Sonuç: <code>function_name = &quot;fn_add_numbers&quot;</code>.</p>
+<p><strong>3. Aşama 2 — parametre <code>a</code> (number)</strong></p>
+<p>Prompt:</p>
+<figure class="code rv" data-lang="text"><div class="code-bar"><span>Metin</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs">Function: fn_add_numbers
+Description: Add two numbers together and return their sum.
+What is the sum of 2 and 3?
+first argument (a) value: </code></pre></figure>
+<div class="table-wrap rv" tabindex="0" role="region" aria-label="Tablo"><table>
+<thead>
+<tr>
+<th>Adım</th>
+<th>Şu ana kadar</th>
+<th>Tamam mı</th>
+<th>Geçerli</th>
+<th>Seçim</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>``</td>
+<td><span class="mk mk-n" role="img" aria-label="hayır" title="hayır"></span></td>
+<td><code>0-9</code>, <code>-</code></td>
+<td><code>2</code></td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>2</code></td>
+<td><span class="mk mk-y" role="img" aria-label="evet" title="evet"></span></td>
+<td><code>Ċ</code>, <code>0-9</code>, <code>.</code></td>
+<td><code>Ċ</code> → <strong>dur</strong></td>
+</tr>
+</tbody></table>
+</div>
+<p><code>float(&quot;2&quot;)</code> → <code>2.0</code>. <code>context = &quot;\na: 2.0&quot;</code>.</p>
+<p><strong>4. Aşama 2 — parametre <code>b</code> (number)</strong></p>
+<p>Prompt:</p>
+<figure class="code rv" data-lang="text"><div class="code-bar"><span>Metin</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs">Function: fn_add_numbers
+Description: Add two numbers together and return their sum.
+What is the sum of 2 and 3?
+a: 2.0
+second argument (b) value: </code></pre></figure>
+<p>Model <code>3</code> seçiyor, sonra <code>Ċ</code>. → <code>3.0</code>.</p>
+<p><strong>5. Sonuç:</strong></p>
+<figure class="code rv" data-lang="python"><div class="code-bar"><span>Python</span><button class="copy" type="button" aria-label="Kodu kopyala">Kopyala</button></div><pre class="md-code"><code class="hljs">FunctionCallResult(prompt=<span class="hljs-string">&quot;What is the sum of 2 and 3?&quot;</span>,
+                   name=<span class="hljs-string">&quot;fn_add_numbers&quot;</span>,
+                   parameters={<span class="hljs-string">&quot;a&quot;</span>: <span class="hljs-number">2.0</span>, <span class="hljs-string">&quot;b&quot;</span>: <span class="hljs-number">3.0</span>})</code></pre></figure>
+<p><strong>Forward pass sayısı:</strong> Ad için 5 + <code>a</code> için 2 + <code>b</code> için 2 = <strong>9 forward pass</strong>. Her forward pass öncesinde de vocab taramaları yapılıyor.</p>
+<figure class="w rv" data-w="e2e" data-ui>
+<p class="w-title">Uçtan uca oynatıcı</p>
+<div class="seg" role="radiogroup" aria-label="Senaryo">
+  <button type="button" role="radio" aria-checked="true" data-s="sum">What is the sum of 2 and 3?</button>
+  <button type="button" role="radio" aria-checked="false" data-s="greet">Greet shrek</button>
+</div>
+<div class="e2e">
+  <div class="e2e-prompt"><span class="e2e-k">Modele giden metin</span><pre class="e2e-pre"></pre></div>
+  <div class="e2e-state">
+    <p class="e2e-phase"></p>
+    <dl class="e2e-dl">
+      <div><dt>Şu ana kadar</dt><dd><code class="e2e-so"></code></dd></div>
+      <div><dt>Geçerli tokenlerden bazıları</dt><dd class="chips e2e-valid"></dd></div>
+      <div class="e2e-cands-w"><dt>Adaylar</dt><dd><ul class="e2e-cands"></ul></dd></div>
+    </dl>
+    <pre class="e2e-json"></pre>
+  </div>
+</div>
+<div class="w-ctrl"><button type="button" class="wbtn" data-act="prev">Geri</button><button type="button" class="wbtn" data-act="next">İleri</button><button type="button" class="wbtn" data-act="play">Oynat</button><button type="button" class="wbtn" data-act="reset">Baştan</button><span class="e2e-n">forward pass: 0</span></div>
+<figcaption>Adımlar bu bölümdeki tablolardan alındı; token bölmeleri temsili.</figcaption>
+</figure><h3 id="bir-string-örneği-greet-shrek" class="mdh rv">Bir string örneği: &quot;Greet shrek&quot;</h3>
+<p>Fonksiyon <code>fn_greet</code> seçildikten sonra prompt <code>... first argument (name) value: </code> ile bitiyor. Kod açılış tırnağını ekliyor:</p>
+<div class="table-wrap rv" tabindex="0" role="region" aria-label="Tablo"><table>
+<thead>
+<tr>
+<th>Adım</th>
+<th>Şu ana kadar (ham)</th>
+<th>Seçim</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>0</td>
+<td><code>&quot;</code> (bizim koyduğumuz)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>1</td>
+<td><code>&quot;</code></td>
+<td><code>sh</code></td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>&quot;sh</code></td>
+<td><code>rek</code></td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>&quot;shrek</code></td>
+<td><code>&quot;</code> → <strong>kapandı</strong></td>
+</tr>
+</tbody></table>
+</div>
+<p><code>decode_bpe_string(&#39;&quot;shrek&quot;&#39;)</code> → <code>&quot;shrek&quot;</code> → <code>strip(&#39;&quot;&#39;)</code> → <code>shrek</code>.</p>
+<hr class="gap">
+<nav class="pager" aria-label="Bölümler arası gezinme"><a class="pg pg-prev" href="#5-fonksiyonlar--çalışma-sırasıyla-tek-tek"><span>Önceki</span>5. Fonksiyonlar — çalışma sırasıyla, tek tek</a></nav>
+</section>
+  </main>
+</div>
+
+<footer class="foot">
+  <p class="foot-mark" aria-hidden="true">call me maybe</p>
+  <div class="foot-cols">
+    <div>
+      <p class="foot-h">Kaynak</p>
+      <p><a href="https://github.com/SefaKartav/callmemaybe-study-guide/blob/main/callme_calisma_notlari.md" target="_blank" rel="noopener">callme_calisma_notlari.md</a></p>
+      <p>Kodun 23 Ekim 2026 tarihli haline (son commit <code>dfa70e3</code>) göre.</p>
+    </div>
+    <div>
+      <p class="foot-h">Proje</p>
+      <p>call me maybe, 42 İstanbul müfredatı</p>
+      <p>Qwen3-0.6B · constrained decoding</p>
+    </div>
+    <div>
+      <p class="foot-h">Sefa Kartav</p>
+      <p><a href="https://github.com/SefaKartav" target="_blank" rel="noopener">GitHub</a></p>
+      <p><a href="https://sefakartav.github.io" target="_blank" rel="noopener">sefakartav.github.io</a></p>
+    </div>
+  </div>
+  <div class="foot-last">
+    <p>© 2026 Sefa Kartav</p>
+    <a class="btn btn-inv" href="#top">Başa dön</a>
+  </div>
+</footer>
+<script src="app.js" defer></script>
+</body>
+</html>
